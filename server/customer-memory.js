@@ -44,6 +44,8 @@ export class CustomerMemory {
     const saved = store.read(this.file, {});
     this.clients = new Map(Object.entries(saved.clients || {}));
     this.usage = saved.usage || { day: '', count: 0 };
+    this.usageClients = new Map(Object.entries(this.usage.clientCounts || {}).map(([id, count]) => [id, count]));
+    for (const [id, record] of this.clients) if (!this.usageClients.has(id) && record?.usage?.day === this.usage.day) this.usageClients.set(id, record.usage.count || 0);
     this.dirty = false;
     this.prune();
   }
@@ -54,9 +56,18 @@ export class CustomerMemory {
       record.facts ||= {};
       for (const [field, fact] of Object.entries(record.facts)) if (!MEMORY_FIELDS.includes(field) || typeof fact?.valor !== 'string' || fact.valor.length > 120 || fact.expiresAt <= this.now() || !Number.isFinite(fact.expiresAt)) { delete record.facts[field]; this.dirty = true; }
       if (record.summary && (record.summary.expiresAt <= this.now() || !Number.isFinite(record.summary.expiresAt))) { delete record.summary; this.dirty = true; }
-      if (record.lastSeen < this.now() - this.ttlDays * DAY) { this.clients.delete(id); this.dirty = true; }
+      if (record.lastSeen < this.now() - this.ttlDays * DAY && !Object.keys(record.facts).length && !record.summary) { this.clients.delete(id); this.dirty = true; }
     }
-    while (this.clients.size > this.maxClients) { this.clients.delete(this.clients.keys().next().value); this.dirty = true; }
+    if (this.clients.size > this.maxClients) {
+      const oldest = [...this.clients].sort((a, b) => a[1].lastSeen - b[1].lastSeen);
+      for (const [id] of oldest.slice(0, this.clients.size - this.maxClients)) this.clients.delete(id);
+      this.dirty = true;
+    }
+  }
+  configure(settings) {
+    const limits = settings.limits;
+    Object.assign(this, { maxClients: limits.maxClients, ttlDays: limits.memoryDays, summaryCharacters: limits.summaryCharacters, perClientDaily: limits.perClientDaily, globalDaily: limits.globalDaily, enabled: settings.memoryEnabled });
+    this.prune();
   }
   record(id) {
     if (!id || typeof id !== 'string' || id.length > 256) throw new Error('Identificador de memoria inválido.');
@@ -125,17 +136,18 @@ export class CustomerMemory {
   }
   consume(id) {
     const day = this.day();
-    if (this.usage.day !== day) this.usage = { day, count: 0 };
+    if (this.usage.day !== day) { this.usage = { day, count: 0 }; this.usageClients.clear(); this.dirty = true; }
+    const used = this.usageClients.get(id) || 0;
+    if (used >= this.perClientDaily || this.usage.count >= this.globalDaily) return false;
     const record = this.record(id);
-    if (record.usage?.day !== day) record.usage = { day, count: 0 };
-    if (record.usage.count >= this.perClientDaily || this.usage.count >= this.globalDaily) return false;
-    record.usage.count++; this.usage.count++; this.dirty = true;
+    record.usage = { day, count: used + 1 };
+    this.usageClients.set(id, used + 1); this.usage.count++; this.dirty = true;
     return true;
   }
   flush() {
     this.prune();
     if (!this.dirty) return;
-    this.store.write(this.file, { version: 1, clients: Object.fromEntries(this.clients), usage: this.usage });
+    this.store.write(this.file, { version: 1, clients: Object.fromEntries(this.clients), usage: { ...this.usage, clientCounts: Object.fromEntries(this.usageClients) } });
     this.dirty = false;
   }
 }

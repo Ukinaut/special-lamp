@@ -2,6 +2,7 @@ import { escapeHtml } from './services/safe-html.js';
 // Styles are loaded directly via link rel="stylesheet" in admin.html
 import { OpenAIService } from './services/openai.js';
 import { KnowledgeService } from './services/knowledge.js';
+import { initMemoryRagPanel } from './memory-rag-panel.js';
 import { UsersService } from './services/users.js';
 
 const ADMIN_SESSION_KEY = 'aitue_admin_session';
@@ -59,6 +60,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const kbContent = document.getElementById('kb-content');
   const kbCardsContainer = document.getElementById('kb-cards-container');
   const kbSearchInput = document.getElementById('kb-search-input');
+  let knowledgeRevision;
+  let editingKnowledgeRevision;
+  async function refreshKnowledge() {
+    const data = await KnowledgeService.fetchServerKnowledge();
+    knowledgeRevision = data.revision;
+    renderKnowledgeCards(kbSearchInput?.value.trim() || '');
+  }
+  const memoryRagPanel = initMemoryRagPanel({ document, fetchImpl: (...args) => fetch(...args), onRefresh: refreshKnowledge });
 
   // WhatsApp QR DOM
   const wpQrImg = document.getElementById('wp-qr-img');
@@ -187,6 +196,7 @@ document.addEventListener('DOMContentLoaded', () => {
       loadAppointmentConfig();
     } else if (targetTabId === 'tab-knowledge') {
       renderKnowledgeCards();
+      memoryRagPanel.load();
     } else if (targetTabId === 'tab-users') {
       loadOperators();
     } else if (targetTabId === 'tab-analytics') {
@@ -288,17 +298,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function checkApiStatus() {
     try {
-      const res = await fetch('/api/whatsapp/cloud/webhook');
-      if (res.ok) {
+      const res = await fetch('/api/whatsapp/status');
+      const data = res.ok ? await res.json() : {};
+      if (data.status === 'CONNECTED') {
         if (apiStatusDot) { apiStatusDot.className = 'status-indicator status-online'; }
-        if (apiStatusText) { apiStatusText.textContent = 'API Meta: Vinculada'; }
+        if (apiStatusText) { apiStatusText.textContent = 'WhatsApp: Vinculado'; }
       } else {
         if (apiStatusDot) { apiStatusDot.className = 'status-indicator status-offline'; }
-        if (apiStatusText) { apiStatusText.textContent = 'API Meta: Desconectado'; }
+        if (apiStatusText) { apiStatusText.textContent = data.status === 'SCAN_QR' ? 'WhatsApp: Esperando QR' : 'WhatsApp: Desconectado'; }
       }
     } catch (e) {
       if (apiStatusDot) { apiStatusDot.className = 'status-indicator status-offline'; }
-      if (apiStatusText) { apiStatusText.textContent = 'API Meta: Desconectado'; }
+      if (apiStatusText) { apiStatusText.textContent = 'WhatsApp: Desconectado'; }
     }
   }
 
@@ -424,8 +435,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateSystemBadges(config);
     
     // Sync live RAG knowledge from backend server first if available
-    await KnowledgeService.fetchServerKnowledge();
-    renderKnowledgeCards();
+    await refreshKnowledge();
 
     loadOperators();
     initWpQrCode();
@@ -1208,6 +1218,20 @@ ${summary.prioridad}`);
 
   // 9. MEMORIA & RAG (KNOWLEDGE BASE)
   // ----------------------------------------------------
+  async function saveKnowledge(action, value, revision = knowledgeRevision) {
+    let articles = KnowledgeService.getArticles();
+    const updatedAt = new Date().toISOString();
+    if (action === 'add') articles.push({ ...value, id: `kb_${crypto.randomUUID()}`, updatedAt });
+    else if (action === 'update') {
+      if (!articles.some(item => item.id === value.id)) throw new Error('El documento ya no existe. Actualizá la lista.');
+      articles = articles.map(item => item.id === value.id ? { ...item, ...value, updatedAt } : item);
+    } else if (action === 'delete') articles = articles.filter(item => item.id !== value);
+    else if (action === 'reset') articles = KnowledgeService.getKnowledgeArticles();
+    const res = await fetch('/api/config/knowledge', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ articles, revision }) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'No se pudo guardar el documento.');
+    await refreshKnowledge();
+  }
   if (addKbForm) {
     addKbForm.addEventListener('submit', async (event) => {
       event.preventDefault();
@@ -1218,7 +1242,7 @@ ${summary.prioridad}`);
 
       if (!title || !content) return;
 
-      await KnowledgeService.addArticle({ title, content, category });
+      await saveKnowledge('add', { title, content, category, approved: true, status: 'active' });
       kbTitle.value = '';
       kbContent.value = '';
       renderKnowledgeCards();
@@ -1237,7 +1261,7 @@ ${summary.prioridad}`);
   if (resetKbBtn) {
     resetKbBtn.addEventListener('click', async () => {
       if (confirm('¿Restaurar las pautas de conocimiento corporativas de AITUE por defecto?')) {
-        try { await KnowledgeService.resetToDefaults(); } catch (err) { alert(err.message); return; }
+        try { await saveKnowledge('reset'); } catch (err) { alert(err.message); return; }
         renderKnowledgeCards();
           alert('Base de conocimientos restaurada.');
       }
@@ -1311,7 +1335,7 @@ ${summary.prioridad}`);
       const card = document.createElement('div');
       card.style.cssText = 'background:rgba(7,22,47,0.85); border:1px solid rgba(89,168,255,0.25); border-radius:12px; padding:1.2rem; display:flex; flex-direction:column; gap:0.6rem; position:relative;';
       
-      const timeStr = new Date(art.updatedAt).toLocaleDateString();
+      const timeStr = art.updatedAt && Number.isFinite(Date.parse(art.updatedAt)) ? new Date(art.updatedAt).toLocaleDateString('es-AR') : 'Sin fecha registrada';
 
       card.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -1324,7 +1348,9 @@ ${summary.prioridad}`);
           </div>
         </div>
         <h4 style="font-family:'Outfit', sans-serif; font-size:1rem; color:#ffffff; margin:0;">${escapeHtml(art.title)}</h4>
-        <p style="font-size:0.82rem; color:#cbd5e1; line-height:1.4; white-space:pre-line; margin:0; flex:1;">${escapeHtml(art.content)}</p>
+        <p style="font-size:0.8rem; color:#cbd5e1; margin:0;">${escapeHtml(art.content.slice(0, 180))}${art.content.length > 180 ? '…' : ''}</p>
+        <details style="font-size:0.8rem; color:#cbd5e1;"><summary style="cursor:pointer; color:#59a8ff;">Ver contenido completo</summary><p style="white-space:pre-line; line-height:1.5;">${escapeHtml(art.content)}</p></details>
+        <span style="font-size:0.72rem; color:#94a3b8;">${art.visibility === 'internal' ? 'Sólo operadores' : art.approved === false || ['draft', 'archived', 'rejected'].includes(art.status) ? 'No disponible para la IA' : 'Disponible para consultas'}${art.validUntil ? ` · Vigente hasta ${escapeHtml(new Date(art.validUntil).toLocaleDateString('es-AR'))}` : ''}</span>
         <span style="font-family:'Share Tech Mono', monospace; font-size:0.62rem; color:#64748b;">Actualizado: ${timeStr}</span>
       `;
       kbCardsContainer.appendChild(card);
@@ -1336,7 +1362,7 @@ ${summary.prioridad}`);
         e.preventDefault();
         const id = btn.getAttribute('data-id');
         if (confirm('¿Eliminar esta pauta de conocimiento?')) {
-          try { await KnowledgeService.deleteArticle(id); } catch (err) { alert(err.message); return; }
+          try { await saveKnowledge('delete', id); } catch (err) { alert(err.message); return; }
           renderKnowledgeCards(kbSearchInput ? kbSearchInput.value.trim() : '');
             }
       });
@@ -1362,6 +1388,14 @@ ${summary.prioridad}`);
           editCat.value = art.category || 'General';
           editTitle.value = art.title || '';
           editContent.value = art.content || '';
+          editingKnowledgeRevision = knowledgeRevision;
+          const day = value => value ? new Date(value).toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' }) : '';
+          document.getElementById('edit-kb-status').value = art.approved === false ? 'rejected' : art.status || 'active';
+          document.getElementById('edit-kb-visibility').value = art.visibility || 'public';
+          document.getElementById('edit-kb-valid-from').value = day(art.validFrom);
+          document.getElementById('edit-kb-valid-until').value = day(art.validUntil || art.expiresAt);
+          document.getElementById('edit-kb-commercial-until').value = day(art.commercialValidUntil);
+          document.getElementById('edit-kb-client').value = art.clientId || art.customerId || '';
           editModal.style.display = 'flex';
         }
       });
@@ -1391,7 +1425,13 @@ ${summary.prioridad}`);
 
     if (!id || !title || !content) return;
 
-    try { await KnowledgeService.updateArticle({ id, category, title, content }); } catch (err) { alert(err.message); return; }
+    const status = document.getElementById('edit-kb-status').value;
+    const date = (field, end = true) => {
+      const value = document.getElementById(field).value;
+      return value ? `${value}T${end ? '23:59:59.999' : '00:00:00'}-03:00` : null;
+    };
+    const metadata = { status, approved: status === 'active', visibility: document.getElementById('edit-kb-visibility').value, validFrom: date('edit-kb-valid-from', false), validUntil: date('edit-kb-valid-until'), expiresAt: null, commercialValidUntil: date('edit-kb-commercial-until'), clientId: document.getElementById('edit-kb-client').value.trim() || null, customerId: null };
+    try { await saveKnowledge('update', { id, category, title, content, ...metadata }, editingKnowledgeRevision); } catch (err) { alert(err.message); return; }
     hideEditKbModal();
     renderKnowledgeCards(kbSearchInput ? kbSearchInput.value.trim() : '');
     alert('Pauta de conocimiento actualizada.');

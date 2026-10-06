@@ -1181,3 +1181,19 @@ input:checked + .slider:before { transform: translateX(20px); }
   padding-bottom: 0.5rem;
 }
 
+.memory-rag-section { display: flex; flex-direction: column; gap: 1.2rem; margin-bottom: 1.5rem; }
+.memory-rag-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.2rem; }
+.memory-rag-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.memory-rag-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin: 1rem 0; }
+.memory-rag-fields > div { min-width: 0; }
+.memory-rag-search { display: flex; gap: .7rem; margin: .8rem 0; }
+.memory-rag-search input { min-width: 0; flex: 1; }
+.memory-rag-help { margin: 1rem 0; color: #cbd5e1; font-size: .85rem; line-height: 1.6; }
+.memory-rag-help summary { cursor: pointer; color: #59a8ff; }
+.memory-rag-status { color: #00f5d4; font-size: .85rem; }
+.memory-rag-check { display: flex; align-items: center; gap: .6rem; font-size: .85rem; margin-top: 1rem; }
+.memory-rag-preview { white-space: pre-wrap; color: #e2e8f0; line-height: 1.6; }
+#mr-memory-form small { display: block; color: #94a3b8; font-size: .7rem; margin-top: .3rem; }
+#mr-memory-form .admin-label, #mr-settings-form > .admin-label { margin-top: .9rem; }
+@media (max-width: 900px) { .memory-rag-columns { grid-template-columns: 1fr; } }
+@media (max-width: 540px) { .memory-rag-fields { grid-template-columns: 1fr; } .memory-rag-search { flex-direction: column; } }

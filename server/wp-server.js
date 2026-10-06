@@ -29,9 +29,10 @@ import { QrConnection } from './qr-connection.js';
 import { installSecurity } from './admin-security.js';
 import { localParts, validateBookingConfig, validateAppointment } from './booking.js';
 import { completionBody } from './ai-request.js';
-import { CustomerMemory } from './customer-memory.js';
+import { CustomerMemory, MEMORY_FIELDS } from './customer-memory.js';
 import { RagRetriever } from './rag-retriever.js';
-import { GroundedAssistant, ASSISTANT_LIMITS } from './grounded-assistant.js';
+import { GroundedAssistant } from './grounded-assistant.js';
+import { AssistantSettings, LIMIT_FIELDS, revisionOf } from './assistant-settings.js';
 
 const app = express();
 app.use(express.json({ limit: '256kb' }));
@@ -85,7 +86,9 @@ const SETTINGS_FILE = ensureDataFile('runtime-config.json', {});
 const CONTEXTS_FILE = ensureDataFile('conversation-states.json', {});
 const runtimeSettings = readJsonFile(SETTINGS_FILE, {});
 ContextManager.restore(readJsonFile(CONTEXTS_FILE, {}));
-const customerMemory = new CustomerMemory(jsonStore, DATA_DIR);
+const assistantSettings = new AssistantSettings(jsonStore, DATA_DIR);
+const initialAssistantSettings = assistantSettings.get();
+const customerMemory = new CustomerMemory(jsonStore, DATA_DIR, { ...initialAssistantSettings.limits, ttlDays: initialAssistantSettings.limits.memoryDays, enabled: initialAssistantSettings.memoryEnabled });
 ContextManager.setMemoryObserver((chatId, text, history) => {
   customerMemory.observe(chatId, text, activeChats[chatId]?.messages.at(-1)?.id, history);
 });
@@ -324,9 +327,10 @@ function getAvailableSlots() {
 }
 
 // Retrieval is local and reads the existing knowledge without rewriting its contents.
-const ragRetriever = new RagRetriever(() => serverKnowledgeBase);
+const ragRetriever = new RagRetriever(() => serverKnowledgeBase, { maxFragments: initialAssistantSettings.limits.ragFragments, maxCharacters: initialAssistantSettings.limits.ragCharacters });
 const groundedAssistant = new GroundedAssistant({
   memory: customerMemory, retriever: ragRetriever,
+  getSettings: () => assistantSettings.get(),
   canRespond: chatId => !isBotPaused && !activeChats[chatId]?.botPaused && !activeChats[chatId]?.closed,
   allowedContacts: () => JSON.stringify([CONTACTS, LINKS]),
   onAudit: (chatId, audit) => { if (activeChats[chatId]) activeChats[chatId].lastAiAudit = audit; }
@@ -1482,8 +1486,53 @@ async function handleBaileysBatch(batch) {
   }
 
 // Authenticated diagnostics: no new memory is exposed to public web sessions.
-app.get('/api/assistant/limits', (req, res) => res.json(ASSISTANT_LIMITS));
-app.get('/api/chats/:id/memory', (req, res) => res.json(customerMemory.context(req.params.id)));
+app.get('/api/assistant/limits', (req, res) => res.json({ ...assistantSettings.get().limits, memoryFields: MEMORY_FIELDS.length }));
+function assistantPanelState() {
+  return { settings: assistantSettings.get(), revision: assistantSettings.revision(), fields: LIMIT_FIELDS, memoryFields: MEMORY_FIELDS, connection: { configured: Boolean(OPENAI_API_KEY), provider: OPENAI_API_KEY.startsWith('nvapi-') ? 'NVIDIA' : 'OpenAI', model: currentModelName, panelMaxTokens: currentMaxTokens } };
+}
+app.get('/api/assistant/settings', (req, res) => res.json(assistantPanelState()));
+app.post('/api/assistant/settings', (req, res) => {
+  try {
+    const settings = assistantSettings.update(req.body?.settings, req.body?.revision);
+    customerMemory.configure(settings);
+    ragRetriever.maxFragments = settings.limits.ragFragments;
+    ragRetriever.maxCharacters = settings.limits.ragCharacters;
+    customerMemory.flush();
+    res.json(assistantPanelState());
+  } catch (err) { res.status(err.status || 400).json({ error: err.message }); }
+});
+app.get('/api/chats/:id/memory', (req, res) => res.json({ ...customerMemory.context(req.params.id), revision: customerMemory.revision(req.params.id) }));
+app.post('/api/chats/:id/memory', (req, res) => {
+  try {
+    const data = customerMemory.edit(req.params.id, req.body, req.adminUser);
+    res.json({ ...data, revision: customerMemory.revision(req.params.id) });
+  } catch (err) { res.status(err.status || 400).json({ error: err.message }); }
+});
+app.get('/api/assistant/memories', (req, res) => {
+  customerMemory.prune();
+  const search = String(req.query.search || '').toLowerCase().slice(0, 200);
+  const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
+  const ids = [...new Set([...customerMemory.clients.keys(), ...Object.keys(activeChats)])].filter(id => !id.startsWith('preview:'));
+  const list = ids.map(id => {
+    const chat = activeChats[id], record = customerMemory.clients.get(id);
+    return { id, name: chat?.name || (id.includes('@') ? 'Cliente WhatsApp' : 'Cliente web'), phone: chat?.phone || '', factsCount: Object.keys(record?.facts || {}).length, updatedAt: record?.lastSeen || null };
+  }).filter(item => [item.id, item.name, item.phone].some(value => value.toLowerCase().includes(search))).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  res.json({ items: list.slice(offset, offset + 50), total: list.length, offset });
+});
+app.post('/api/assistant/preview', async (req, res) => {
+  const { message, clientId } = req.body || {};
+  if (typeof message !== 'string' || !message.trim() || message.length > 3000 || (clientId !== undefined && typeof clientId !== 'string')) return res.status(400).json({ error: 'Escribí una consulta de hasta 3000 caracteres.' });
+  let audit;
+  const previewId = `preview:${req.adminUser}`;
+  const preview = new GroundedAssistant({
+    memory: { context: () => customerMemory.context(clientId || ''), consume: () => customerMemory.consume(previewId), acceptProposals: () => 0 },
+    retriever: ragRetriever, getSettings: () => assistantSettings.get(),
+    allowedContacts: () => JSON.stringify([CONTACTS, LINKS]), onAudit: (id, value) => { audit = value; }
+  });
+  const reply = await preview.answer({ chatId: clientId || previewId, userText: message.trim(), history: [], systemPrompt: customWpSystemPrompt, route: { action: 'PREVIEW', area: 'General' }, fallback: 'No pude preparar una respuesta validada. Revisá las fuentes, los límites y la conexión de IA.', apiKey: OPENAI_API_KEY, model: currentModelName, maxTokens: currentMaxTokens, temperature: currentTemperature, organizationId: OPENAI_ORG_ID });
+  customerMemory.flush();
+  res.json({ reply, audit });
+});
 
 // REST APIs
 // Web assistant chatbot messaging
@@ -2195,17 +2244,27 @@ app.post('/api/config/system-prompt', (req, res) => {
 
 app.post('/api/config/knowledge', (req, res) => {
   const { articles } = req.body || {};
-  if (Array.isArray(articles)) {
-    serverKnowledgeBase = articles;
+  if (Array.isArray(articles) && articles.length <= 500 && Buffer.byteLength(JSON.stringify(articles)) <= 220000) {
+    const ids = new Set();
+    for (const article of articles) {
+      if (!article || typeof article.id !== 'string' || !article.id || article.id.length > 128 || ids.has(article.id) || typeof article.title !== 'string' || !article.title.trim() || article.title.length > 300 || typeof article.content !== 'string' || !article.content.trim() || article.content.length > 100000) return res.status(400).json({ error: 'Revisá el identificador, el título y el contenido de cada documento.' });
+      ids.add(article.id);
+      for (const key of ['validFrom', 'validUntil', 'expiresAt', 'commercialValidUntil']) if (article[key] && !Number.isFinite(Date.parse(article[key]))) return res.status(400).json({ error: 'Fecha de vigencia inválida.' });
+      if (article.validFrom && article.validUntil && Date.parse(article.validFrom) >= Date.parse(article.validUntil)) return res.status(400).json({ error: 'La fecha final debe ser posterior al inicio.' });
+      if (article.approved !== undefined && typeof article.approved !== 'boolean') return res.status(400).json({ error: 'Estado de aprobación inválido.' });
+      for (const key of ['clientId', 'customerId']) if (article[key] !== undefined && article[key] !== null && (typeof article[key] !== 'string' || article[key].length > 256)) return res.status(400).json({ error: 'Cliente asociado inválido.' });
+    }
+    if (req.body.revision !== undefined && req.body.revision !== revisionOf(serverKnowledgeBase)) return res.status(409).json({ error: 'El RAG cambió. Actualizá la lista antes de guardar.' });
     writeJsonFile(KNOWLEDGE_BASE_FILE, articles);
-    res.json({ success: true, message: 'RAG actualizado.' });
+    serverKnowledgeBase = articles;
+    res.json({ success: true, message: 'RAG actualizado.', revision: revisionOf(articles) });
   } else {
     res.status(400).json({ error: 'Parámetro inválido' });
   }
 });
 
 app.get('/api/config/knowledge', (req, res) => {
-  res.json({ systemPrompt: customWpSystemPrompt, assistantSystemPrompt, articles: serverKnowledgeBase, model: currentModelName, temperature: currentTemperature, maxTokens: currentMaxTokens, apiKeyConfigured: Boolean(OPENAI_API_KEY), whisperKeyConfigured: Boolean(customWhisperApiKey) });
+  res.json({ systemPrompt: customWpSystemPrompt, assistantSystemPrompt, articles: serverKnowledgeBase, revision: revisionOf(serverKnowledgeBase), model: currentModelName, temperature: currentTemperature, maxTokens: currentMaxTokens, apiKeyConfigured: Boolean(OPENAI_API_KEY), whisperKeyConfigured: Boolean(customWhisperApiKey) });
 });
 
 app.post('/api/config/model', (req, res) => {
@@ -2341,7 +2400,7 @@ if (process.env.BOT_TEST_MODE !== 'true') {
 export { app, shutdown };
 export const testHooks = process.env.BOT_TEST_MODE === 'true' ? {
   handleBaileysBatch, runReminders, activeChats, incomingQueue, getBookingConfig,
-  generateOpenAIResponse, customerMemory, ragRetriever, groundedAssistant,
+  generateOpenAIResponse, customerMemory, ragRetriever, groundedAssistant, assistantSettings,
   setSocket(socket) { sock = socket; connectionStatus = socket ? 'CONNECTED' : 'DISCONNECTED'; },
   setPaused(value) { isBotPaused = value; }
 } : null;

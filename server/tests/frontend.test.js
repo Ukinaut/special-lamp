@@ -5,6 +5,7 @@ import vm from 'node:vm';
 import { KnowledgeService } from '../../src/services/knowledge.js';
 import { OpenAIService } from '../../src/services/openai.js';
 import { escapeHtml } from '../../src/services/safe-html.js';
+import { initMemoryRagPanel } from '../../src/memory-rag-panel.js';
 
 test('the real admin script loads the panel and QR without overwriting server configuration', async () => {
   const nodes = new Map();
@@ -43,7 +44,7 @@ test('the real admin script loads the panel and QR without overwriting server co
   globalThis.localStorage = { getItem() { return null; }, setItem() {}, removeItem() {} };
   try {
     const source = fs.readFileSync(new URL('../../src/admin.js', import.meta.url), 'utf8').replace(/^import\s[^\n]+\r?\n/gm, '');
-    const sandbox = { document, fetch: fakeFetch, OpenAIService, KnowledgeService, UsersService: {}, escapeHtml,
+    const sandbox = { document, fetch: fakeFetch, OpenAIService, KnowledgeService, UsersService: {}, escapeHtml, initMemoryRagPanel,
       localStorage: globalThis.localStorage, sessionStorage: globalThis.localStorage,
       setInterval() { return 1; }, setTimeout() { return 1; }, console,
       window: { location: {}, scrollTo() {} }, alert() {}, confirm() { return false; } };

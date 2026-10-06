@@ -11,13 +11,14 @@ existentes se conservaron sin cambios. La conexión de WhatsApp sigue siendo por
    sobre equipo, producto de interés, uso e instalación.
 2. El clasificador y el enrutador actuales deciden la intención y el área. Las
    respuestas fijas y derivaciones existentes tienen prioridad y no consultan IA.
-3. Para las demás consultas, el recuperador busca hasta cuatro fragmentos relevantes
+3. Para las demás consultas, el recuperador busca la cantidad configurada de fragmentos relevantes
    entre los artículos existentes. Usa coincidencia de palabras, normalización del
    español y un índice local reutilizable; no usa búsqueda vectorial.
 4. Se entrega a la IA el mensaje actual, un historial acotado, la memoria de ese
    cliente y los fragmentos seleccionados. Las reglas del servidor van separadas.
 5. La IA devuelve un objeto estructurado. El servidor verifica su formato, sus
-   fuentes y cada extracto antes de componer la respuesta.
+   fuentes y cada extracto. En modo conversacional revisa además la reformulación
+   mediante una segunda consulta independiente al proveedor.
 6. Si falta evidencia, falla el proveedor, se supera un límite o la validación
    rechaza el resultado, se conserva la respuesta existente o se pide aclaración.
    Una conversación pausada o cerrada no recibe la respuesta pendiente.
@@ -28,11 +29,19 @@ OpenAI usa Responses API con un esquema JSON estricto y `store: false`. NVIDIA
 conserva su conexión compatible y pasa por la misma validación local. Se usa la
 clave y el modelo configurados en el panel; no se reemplazaron esos valores.
 
-En esta primera implementación, la información técnica generada se limita a
-extractos literales de las fuentes recuperadas. Las introducciones y preguntas
-provienen de opciones controladas por el servidor. Esto limita la reformulación
-libre, pero permite comprobar exactamente de dónde salió cada afirmación.
-El formato JSON estricto por sí solo no verifica la veracidad del contenido.
+El panel permite elegir extractos literales o una respuesta conversacional. El
+modo conversacional es el predeterminado y permite reformular el contenido con
+tono cercano, neutral o formal y pautas editables. Cada reformulación debe citar
+internamente extractos literales válidos. Los contactos, cifras y acciones pasan
+por validación local; una segunda consulta contrasta el texto con la evidencia.
+Sólo se entrega la reformulación si esta revisión responde que está respaldada.
+Si falla o no alcanza la cuota, se usa la respuesta existente.
+
+La revisión también usa IA, por lo que reduce errores sin garantizar veracidad
+perfecta. El formato JSON estricto por sí solo no verifica el contenido. El modo
+literal ofrece una comprobación directa de los hechos expresados en cada extracto.
+Las respuestas oficiales y las derivaciones anteriores mantienen su recorrido
+determinista: la reformulación nueva aplica a las respuestas basadas en RAG.
 
 Se rechazan fuentes inexistentes, texto que no aparece en la fuente, contactos
 no autorizados, instrucciones internas detectadas y confirmaciones de acciones
@@ -45,8 +54,9 @@ Los artículos anteriores sin metadatos de aprobación siguen disponibles como
 conocimiento administrado. Los nuevos metadatos opcionales permiten excluir
 `approved: false`, estados `draft`, `rejected` o `archived`, contenido con
 `visibility: internal`, artículos de otro `clientId`/`customerId` y fechas fuera
-de `validFrom`, `validUntil` o `expiresAt`. El panel actual conserva sus campos
-habituales; no incorpora un editor de estos metadatos.
+de `validFrom`, `validUntil` o `expiresAt`. El editor de cada documento incorpora
+estado, visibilidad, vigencia, vigencia comercial y asociación opcional a un cliente.
+Las fechas del editor corresponden al día completo de Argentina.
 
 ## Memoria del cliente
 
@@ -62,6 +72,13 @@ vencimiento. Los campos permitidos son `equipo`, `producto_interes`, `uso` y
 como hechos de memoria. Una propuesta del modelo debe coincidir exactamente con
 una declaración reconocida del mensaje actual para guardarse.
 
+En Memoria & RAG se pueden editar los cuatro campos y el resumen por cliente.
+Las ediciones manuales registran origen de operador y una nueva confirmación.
+Sólo se renueva el vencimiento de los campos realmente modificados. Si hubo un
+mensaje nuevo mientras se editaba, el servidor rechaza el guardado desactualizado
+para evitar sobrescribir esa información. Vaciar un campo lo elimina al guardar.
+La cuota diaria se conserva incluso si se elimina o desplaza la memoria de un cliente.
+
 Ejemplo: «Tengo un Starlink Mini y me interesa el AITUE Pro para mi camioneta»
 guarda equipo, producto y uso. «Ya no tengo un Starlink Mini» elimina ese equipo
 si coincide con el guardado. «No necesito instalación» registra la corrección.
@@ -70,14 +87,21 @@ es conservador y no cubre todas las formas posibles de expresar una preferencia.
 
 La memoria se separa por identificador de conversación. El QR de WhatsApp usa el
 chat del cliente; la web usa su sesión autenticada. No se mezclan automáticamente
-identidades entre ambos canales. Los datos vencen 30 días después de su confirmación.
-Sólo una nueva confirmación del dato renueva su vencimiento.
+identidades entre ambos canales. El vencimiento predeterminado es de 30 días y se
+puede editar. El plazo nuevo se aplica a nuevas confirmaciones; los datos ya guardados
+mantienen su fecha. Sólo confirmar o editar ese dato renueva su vencimiento.
 
 El resumen de contexto contiene citas breves de los últimos tres mensajes del
 cliente. Se trata como una declaración del cliente, no como información oficial
 del negocio. El resumen enmascara patrones habituales de claves y contactos.
 
-## Límites efectivos de la nueva respuesta con RAG
+## Límites predeterminados de la nueva respuesta con RAG
+
+Estos valores se editan en Memoria & RAG, dentro de rangos validados. El archivo
+`assistant-settings.json` conserva estilo, límites y estado de memoria separados
+de la configuración y los documentos anteriores. Guardar aplica los ajustes a
+consultas nuevas sin reconectar WhatsApp. Desactivar la memoria conserva los datos
+guardados pero no extrae hechos nuevos ni los envía como contexto a la IA.
 
 | Recurso | Límite |
 | --- | --- |
@@ -91,14 +115,16 @@ del negocio. El resumen enmascara patrones habituales de claves y contactos.
 | Salida del proveedor | El menor entre el límite del panel y 600 tokens |
 | Respuesta validada de IA | Hasta 120 palabras |
 | Tiempo de espera | 8 segundos |
-| Intentos de respuesta IA por cliente | 60 por día |
-| Intentos de respuesta IA totales | 1000 por día |
+| Solicitudes al proveedor por cliente | 60 por día |
+| Solicitudes al proveedor totales | 1000 por día |
 
 Las cuotas se guardan y se renuevan según el día de Argentina. Las solicitudes
 fallidas al proveedor también cuentan. No se consume cuota si se utiliza una
 respuesta fija, no hay clave o no se encuentran fuentes. Estos topes no equivalen
 a un presupuesto monetario. Audio, visión, pruebas de conexión y resúmenes del CRM
 conservan sus recorridos anteriores y no usan esta cuota de respuestas con RAG.
+Generar y verificar una reformulación puede consumir dos solicitudes. La revisión
+comparte el tiempo de espera de la consulta; no duplica la espera máxima.
 
 Los límites de entrada se miden en bytes y caracteres, no en tokens exactos.
 Si falta espacio se retira primero historial antiguo y luego fuentes de menor
@@ -111,6 +137,12 @@ En Live Chat, abrí una conversación y desplegá **Memoria de esta conversació
 Podés ver los datos y sus vencimientos, junto con las fuentes de la última consulta
 de IA. Esta vista es sólo de lectura y requiere acceso administrativo. El cliente
 web recibe sus mensajes; no recibe la memoria ni los datos internos de revisión.
+
+En **Memoria & RAG** se editan estilo, límites, datos por cliente y metadatos de
+documentos. **Probar una conversación** usa la API configurada y opcionalmente la
+memoria del cliente seleccionado. No escribe hechos nuevos en esa memoria ni envía
+mensajes de WhatsApp, pero cuenta sus solicitudes en la cuota. El botón usa una
+identidad de prueba del administrador, separada de la cuota del cliente seleccionado.
 
 Las rutas administrativas de diagnóstico son `GET /api/assistant/limits` y
 `GET /api/chats/:id/memory`. Cada revisión de IA registra estado, fuentes, versión

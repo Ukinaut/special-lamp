@@ -40,3 +40,4 @@ server/appointments.json
 server/human-takeovers.json
 
 server/customer-memory.json
+server/assistant-settings.json

@@ -22,3 +22,4 @@ server/conversation-states.json
 server/*.tmp
 
 server/customer-memory.json
+server/assistant-settings.json

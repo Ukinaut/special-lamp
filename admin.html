@@ -79,7 +79,7 @@
         <!-- API Connection Status Badge -->
         <div class="status-pill-container" id="header-api-badge">
           <span id="api-status-dot" class="status-indicator status-offline"></span>
-          <span id="api-status-text">API Meta: Desconectado</span>
+          <span id="api-status-text">WhatsApp: Desconectado</span>
         </div>
 
         <!-- Bot Funcionamiento Switch -->
@@ -301,7 +301,7 @@
               <summary style="cursor:pointer;">Memoria de esta conversación</summary>
               <div style="max-height:180px; overflow:auto; padding-top:10px;">
                 <div id="active-chat-memory">Seleccioná una conversación para ver sus datos.</div>
-                <p style="color:#94a3b8; font-size:0.75rem;">Sólo se guardan datos declarados por el cliente. Vencen a los 30 días sin nueva confirmación.</p>
+                <p style="color:#94a3b8; font-size:0.75rem;">Se guardan declaraciones del cliente y datos confirmados por operadores. Cada dato indica su vencimiento. Podés editarlos en Memoria & RAG.</p>
                 <div id="active-chat-ai-evidence" style="color:#94a3b8; font-size:0.75rem;"></div>
               </div>
             </details>
@@ -772,13 +772,67 @@
     <!-- TAB 5: MEMORIA RAG & PAUTAS CORPORATIVAS                 -->
     <!-- ═══════════════════════════════════════════════════════ -->
     <div class="tab-content-view" id="tab-knowledge">
+      <section id="memory-rag-controls" class="memory-rag-section">
+        <div class="admin-card">
+          <div class="memory-rag-heading">
+            <div><h3 class="admin-card-title">Memorias, RAG y conversación</h3><p class="admin-card-desc">Administrá lo que recuerda el bot, cómo usa los documentos y cómo conversa.</p></div>
+            <button type="button" class="btn-admin-ghost" id="mr-refresh">Actualizar información</button>
+          </div>
+          <p id="mr-connection" class="memory-rag-status" role="status">Cargando configuración de IA…</p>
+          <p id="mr-status" class="memory-rag-status" role="status" aria-live="polite"></p>
+          <details class="memory-rag-help"><summary>Cómo responde y qué información utiliza</summary>
+            <p>Primero reconoce la consulta y mantiene las respuestas y derivaciones oficiales. Para otras consultas busca información relevante en los documentos del RAG, utiliza la memoria de ese cliente y prepara una respuesta con la IA configurada.</p>
+            <p>En modo conversacional puede reformular la información con un tono natural. Los extractos de respaldo se comprueban y la reformulación recibe una revisión adicional. Esta revisión reduce errores, pero no garantiza que la IA siempre interprete correctamente una fuente. Si la respuesta no se valida, se usa una respuesta existente o se pide una aclaración.</p>
+            <p>La memoria guarda equipo, producto de interés, uso e instalación. Los datos de clientes no son precios oficiales ni permisos. Cada dato conserva origen y vencimiento; no se mezclan automáticamente los clientes de WhatsApp y la web.</p>
+            <p>Los cambios guardados se aplican a las consultas nuevas. Las cuotas cuentan solicitudes al proveedor: una reformulación con revisión puede usar dos. Audio, imágenes y resúmenes anteriores del CRM siguen sus recorridos habituales.</p>
+          </details>
+        </div>
+        <div class="memory-rag-columns">
+          <form id="mr-settings-form" class="admin-card">
+            <h3 class="admin-card-title">Estilo y límites del bot</h3>
+            <div class="memory-rag-fields">
+              <div><label class="admin-label" for="mr-mode">Forma de responder</label><select id="mr-mode" class="admin-select"><option value="natural">Conversacional, con revisión</option><option value="literal">Extractos literales</option></select></div>
+              <div><label class="admin-label" for="mr-tone">Tono</label><select id="mr-tone" class="admin-select"><option value="cercano">Cercano y amable</option><option value="neutral">Claro y neutral</option><option value="formal">Formal</option></select></div>
+            </div>
+            <label class="admin-label" for="mr-instructions">Pautas de conversación</label><textarea id="mr-instructions" class="admin-textarea" rows="4" maxlength="2000" placeholder="Cómo querés que converse con tus clientes…"></textarea>
+            <label class="memory-rag-check"><input id="mr-memory-enabled" type="checkbox" /> Recordar nuevos datos declarados por el cliente</label>
+            <p class="admin-card-desc">Al desactivar la memoria, se conserva lo guardado y no se envía como contexto a la IA.</p>
+            <details class="memory-rag-help"><summary>Editar límites de memoria, conocimiento y consumo</summary><div id="mr-limit-fields" class="memory-rag-fields"></div>
+              <p class="admin-card-desc">El vencimiento se aplica a nuevas confirmaciones. Reducir la cantidad máxima de clientes elimina las memorias más antiguas que excedan el límite. La salida también respeta el límite general del panel OpenAI API.</p>
+            </details>
+            <button type="submit" id="mr-save-settings" class="btn-admin-success" disabled>Guardar estilo y límites</button>
+          </form>
+          <div class="admin-card">
+            <h3 class="admin-card-title">Memoria por cliente</h3>
+            <div class="memory-rag-search"><input id="mr-client-search" class="admin-input" placeholder="Buscar cliente, teléfono o identificador…" maxlength="200" /><button id="mr-search-clients" type="button" class="btn-admin-ghost">Buscar</button></div>
+            <label class="admin-label" for="mr-client">Cliente / conversación</label><select id="mr-client" class="admin-select"><option value="">Seleccioná un cliente</option></select>
+            <div class="memory-rag-heading"><span id="mr-client-count" class="admin-card-desc"></span><button id="mr-more-clients" type="button" class="btn-admin-ghost" hidden>Ver más</button></div>
+            <form id="mr-memory-form">
+              <div class="memory-rag-fields">
+                <div><label class="admin-label" for="mr-equipo">Equipo</label><input id="mr-equipo" class="admin-input" maxlength="120" /><small id="mr-equipo-origin"></small></div>
+                <div><label class="admin-label" for="mr-producto_interes">Producto de interés</label><input id="mr-producto_interes" class="admin-input" maxlength="120" /><small id="mr-producto_interes-origin"></small></div>
+                <div><label class="admin-label" for="mr-uso">Uso previsto</label><input id="mr-uso" class="admin-input" maxlength="120" /><small id="mr-uso-origin"></small></div>
+                <div><label class="admin-label" for="mr-requiere_instalacion">Necesita instalación</label><select id="mr-requiere_instalacion" class="admin-select"><option value="">Sin dato</option><option value="sí">Sí</option><option value="no">No</option></select><small id="mr-requiere_instalacion-origin"></small></div>
+              </div>
+              <label class="admin-label" for="mr-summary">Resumen de contexto</label><textarea id="mr-summary" class="admin-textarea" rows="3"></textarea>
+              <p class="admin-card-desc">Los campos vacíos eliminan ese dato al guardar. Las ediciones quedan identificadas como confirmadas por un operador. El resumen puede actualizarse con nuevos mensajes del cliente.</p>
+              <button type="submit" id="mr-save-memory" class="btn-admin-success" disabled>Guardar memoria del cliente</button>
+            </form>
+          </div>
+        </div>
+        <form id="mr-preview-form" class="admin-card">
+          <h3 class="admin-card-title">Probar una conversación</h3><p class="admin-card-desc">Usa la API y las pautas guardadas. Puede consumir tu cuota de IA. No envía mensajes de WhatsApp ni modifica la memoria del cliente seleccionado.</p>
+          <div class="memory-rag-search"><input id="mr-preview-message" class="admin-input" placeholder="Escribí una pregunta sobre tus documentos…" maxlength="3000" required /><button type="submit" id="mr-preview-submit" class="btn-admin-primary" disabled>Probar respuesta</button></div>
+          <p id="mr-preview-reply" class="memory-rag-preview" aria-live="polite"></p><p id="mr-preview-sources" class="admin-card-desc"></p>
+        </form>
+      </section>
       <div class="admin-cards-grid">
 
         <!-- Add New Training Document Form -->
         <div class="admin-card" style="grid-column: span 1;">
           <h3 class="admin-card-title">🧠 Agregar Pauta de Conocimiento</h3>
           <p class="admin-card-desc">
-            Enseñale a la IA cómo responder sobre la empresa, productos, precios y pautas de atención para los clientes.
+            Guardá información oficial para que la IA pueda responder sobre la empresa y sus productos. Editá su vigencia y disponibilidad desde cada documento.
           </p>
 
           <form id="add-kb-form" style="display:flex; flex-direction:column; gap:1rem; margin-top:0.5rem;"
@@ -1022,7 +1076,7 @@
   <div id="edit-kb-modal"
     style="display:none; position:fixed; inset:0; background:rgba(2,10,23,0.85); backdrop-filter:blur(8px); z-index:999999; align-items:center; justify-content:center; padding:1rem;">
     <div
-      style="background:rgba(7,22,47,0.95); border:1px solid rgba(89,168,255,0.3); border-radius:16px; width:100%; max-width:600px; padding:1.8rem; box-shadow:0 20px 50px rgba(0,0,0,0.6); display:flex; flex-direction:column; gap:1.2rem;">
+      style="background:rgba(7,22,47,0.95); border:1px solid rgba(89,168,255,0.3); border-radius:16px; width:100%; max-width:680px; max-height:90vh; overflow:auto; padding:1.8rem; box-shadow:0 20px 50px rgba(0,0,0,0.6); display:flex; flex-direction:column; gap:1.2rem;">
       <div
         style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:0.8rem;">
         <h3 style="font-family:'Outfit', sans-serif; font-size:1.2rem; color:#ffffff; margin:0;">✏️ Editar Pauta de
@@ -1045,6 +1099,15 @@
           <label class="admin-label" for="edit-kb-content">Contenido / Pautas de Respuesta</label>
           <textarea id="edit-kb-content" class="admin-textarea" rows="8" required></textarea>
         </div>
+        <div class="memory-rag-fields">
+          <div><label class="admin-label" for="edit-kb-status">Estado del documento</label><select id="edit-kb-status" class="admin-select"><option value="active">Disponible para responder</option><option value="draft">Borrador</option><option value="archived">Archivado</option><option value="rejected">No aprobado</option></select></div>
+          <div><label class="admin-label" for="edit-kb-visibility">Uso del documento</label><select id="edit-kb-visibility" class="admin-select"><option value="public">Consultas de clientes</option><option value="internal">Sólo operadores</option></select></div>
+          <div><label class="admin-label" for="edit-kb-valid-from">Vigente desde</label><input id="edit-kb-valid-from" type="date" class="admin-input" /></div>
+          <div><label class="admin-label" for="edit-kb-valid-until">Vigente hasta</label><input id="edit-kb-valid-until" type="date" class="admin-input" /></div>
+          <div><label class="admin-label" for="edit-kb-commercial-until">Precios / stock válidos hasta</label><input id="edit-kb-commercial-until" type="date" class="admin-input" /></div>
+          <div><label class="admin-label" for="edit-kb-client">Cliente asociado (opcional)</label><input id="edit-kb-client" class="admin-input" maxlength="256" placeholder="Identificador de conversación; vacío para todos" /></div>
+        </div>
+        <p class="admin-card-desc">Las fechas usan el día de Argentina. Un documento vencido, interno o no disponible no se envía a la IA. Los precios o el stock necesitan vigencia comercial.</p>
         <div style="display:flex; justify-content:flex-end; gap:0.8rem; margin-top:0.5rem;">
           <button type="button" class="btn-admin-ghost" id="cancel-edit-kb-btn">Cancelar</button>
           <button type="submit" class="btn-admin-success" id="save-edit-kb-btn">💾 Guardar Cambios</button>

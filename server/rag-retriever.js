@@ -77,5 +77,8 @@ export class RagRetriever {
     }
     return { revision: this.revision, fragments };
   }
-  current(revision) { this.refresh(); return this.revision === revision; }
+  current(revision, fragments = [], clientId) {
+    this.refresh();
+    return this.revision === revision && fragments.every(f => this.chunks.some(c => c.id === f.id && this.allowed(c, clientId)));
+  }
 }
