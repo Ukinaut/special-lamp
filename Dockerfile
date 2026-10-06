@@ -2,7 +2,7 @@ FROM node:22-bookworm-slim AS builder
 
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci --no-audit --no-fund
+RUN npm install --no-audit --no-fund
 COPY . .
 RUN npm run build
 
@@ -16,7 +16,7 @@ ENV NODE_ENV=production \
     BOT_DATA_DIR=/app/data
 
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev --no-audit --no-fund
+RUN npm install --omit=dev --no-audit --no-fund
 COPY server ./server
 COPY --from=builder /app/dist ./dist
 
