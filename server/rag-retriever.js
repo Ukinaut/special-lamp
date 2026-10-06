@@ -12,7 +12,8 @@ export class RagRetriever {
     this.revision = null; this.chunks = [];
   }
   refresh() {
-    const articles = this.getArticles();
+    const data = this.getArticles();
+    const articles = Array.isArray(data) ? data : [];
     const revision = hash(JSON.stringify(articles));
     if (revision === this.revision) return;
     this.revision = revision;
@@ -20,6 +21,7 @@ export class RagRetriever {
     for (const article of articles) {
       if (typeof article?.content !== 'string') continue;
       const articleId = String(article.id || hash(article.title || article.content).slice(0, 20));
+      const version = hash(article.content);
       let offset = 0, index = 0;
       while (offset < article.content.length) {
         let end = Math.min(article.content.length, offset + 1400);
@@ -28,7 +30,7 @@ export class RagRetriever {
           if (boundary > offset + 600) end = boundary;
         }
         const text = article.content.slice(offset, end).trim();
-        if (text) this.chunks.push({ id: `${articleId}#${++index}`, articleId, title: String(article.title || '').slice(0, 200), text, tokens: words(text), titleTokens: words(article.title), article, version: hash(article.content) });
+        if (text) this.chunks.push({ id: `${articleId}#${++index}`, articleId, title: String(article.title || '').slice(0, 200), text, tokens: words(text), titleTokens: words(article.title), article, version });
         offset = end;
       }
     }
@@ -48,9 +50,11 @@ export class RagRetriever {
     const current = words(query);
     const referential = /\b(?:ese|esa|eso|este|esa opcion|el mismo|ese modelo)\b/i.test(normalize(query));
     const extra = referential ? [memory.datos_declarados?.producto_interes?.valor, memory.datos_declarados?.equipo?.valor, history.filter(m => m.sender === 'user').slice(-2).map(m => m.text).join(' ')].filter(Boolean).join(' ') : '';
-    const terms = [...new Set([...current, ...words(extra)])];
+    const allTerms = [...new Set([...current, ...words(extra)])];
+    const terms = allTerms.length > 64 ? [...allTerms.slice(0, 32), ...allTerms.slice(-32)] : allTerms;
     if (!terms.length) return { revision: this.revision, fragments: [] };
     const candidates = this.chunks.filter(c => this.allowed(c, clientId));
+    const frequencies = new Map(terms.map(term => [term, candidates.filter(c => c.tokens.includes(term) || c.titleTokens.includes(term)).length]));
     const ranked = candidates.map(chunk => {
       let score = 0, matched = 0;
       for (const term of terms) {
@@ -58,7 +62,7 @@ export class RagRetriever {
         const titleFrequency = chunk.titleTokens.filter(w => w === term).length;
         if (!frequency && !titleFrequency) continue;
         matched++;
-        const df = candidates.filter(c => c.tokens.includes(term) || c.titleTokens.includes(term)).length;
+        const df = frequencies.get(term);
         score += Math.log(1 + (candidates.length + 1) / (df + 1)) * (Math.min(frequency, 3) + titleFrequency * 3) / (1 + chunk.tokens.length / 300);
       }
       return { chunk, score, coverage: matched / terms.length };

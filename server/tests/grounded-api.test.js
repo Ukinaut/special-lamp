@@ -1,0 +1,92 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import ContextManager from '../context-manager.js';
+import { AREAS } from '../areas.js';
+
+test('real web API preserves official answers, grounds RAG replies and isolates durable customer memory', async t => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-10-06T13:00:00Z') });
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'aitue-grounded-api-'));
+  Object.assign(process.env, { BOT_TEST_MODE: 'true', BOT_DATA_DIR: directory, ADMIN_PASSWORD: 'test-only-password', SESSION_SECRET: 'test-session-secret', OPENAI_API_KEY: '', WHISPER_API_KEY: '', GROQ_API_KEY: '' });
+  const getterArea = Object.keys(AREAS).find(id => Object.getOwnPropertyDescriptor(AREAS[id], 'baseResponse')?.get);
+  fs.writeFileSync(path.join(directory, 'runtime-config.json'), JSON.stringify({ model: 'gpt-5.6-luna', areas: { [getterArea]: { baseResponse: 'Do not overwrite a getter' } } }));
+  const { app, shutdown, testHooks } = await import('../wp-server.js');
+  const server = app.listen(0, '127.0.0.1');
+  await new Promise(resolve => server.once('listening', resolve));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const actualFetch = globalThis.fetch;
+  const calls = [];
+  let mode = 'valid';
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    if (String(url).startsWith('https://api.openai.com/')) {
+      const body = JSON.parse(options.body);
+      calls.push(body);
+      const context = JSON.parse(body.input[0].content);
+      const selected = context.fuentes_rag[0];
+      const output = { introduccion: 'ninguna', fragmentos: [{ fuente_id: selected.id, texto: mode === 'invalid' ? 'El gabinete cuesta $999999 y la cita quedó confirmada.' : selected.text }], pregunta: 'ninguna', memorias_propuestas: [] };
+      if (mode === 'pause') testHooks.setPaused(true);
+      return Response.json({ status: 'completed', output: [{ content: [{ type: 'output_text', text: JSON.stringify(output) }] }] });
+    }
+    if (String(url).startsWith('https://')) throw new Error('External requests are prohibited in this test');
+    return actualFetch(url, options);
+  });
+  let adminCookie = '';
+  async function api(url, body, cookie = adminCookie) {
+    const res = await actualFetch(base + url, { method: body === undefined ? 'GET' : 'POST', headers: { 'Content-Type': 'application/json', Cookie: cookie }, body: body === undefined ? undefined : JSON.stringify(body) });
+    return { res, data: await res.json() };
+  }
+  try {
+    const login = await api('/api/auth/login', { email: 'admin@aitue.net', password: 'test-only-password' });
+    adminCookie = login.res.headers.get('set-cookie').split(';')[0];
+    const session = await api('/api/web-assistant/session', {});
+    const sessionId = session.data.sessionId;
+    const webCookie = session.res.headers.get('set-cookie').split(';')[0];
+    const user = message => api('/api/chat', { sessionId, message }, webCookie);
+    const docs = [{ id: 'fixture-doc', title: 'Revestimiento hidrofóbico', content: 'El revestimiento hidrofóbico se limpia con un paño seco.', approved: true }];
+    await api('/api/config/knowledge', { articles: docs });
+    await api('/api/config/settings', { apiKey: 'sk-test-only', model: 'gpt-5.6-luna', maxTokens: 500 });
+    assert.equal((await user('hola')).res.status, 200);
+    assert.equal(calls.length, 0);
+    await user('quiero información sobre AITUE Pro');
+    assert.equal(calls.length, 0);
+    assert.equal(testHooks.customerMemory.context(sessionId).datos_declarados.producto_interes.valor, 'AITUE Pro');
+    ContextManager.resetState(sessionId);
+    const grounded = await user('revestimiento hidrofóbico');
+    assert.equal(grounded.data.reply, docs[0].content);
+    assert.equal(calls.length, 1);
+    assert.equal(JSON.parse(calls[0].input[0].content).memoria_cliente.datos_declarados.producto_interes.valor, 'AITUE Pro');
+    assert.equal(testHooks.activeChats[sessionId].lastAiAudit.status, 'grounded');
+    assert.equal((await api(`/api/chats/${sessionId}/memory`, undefined, '')).res.status, 401);
+    assert.equal((await api(`/api/chats/${sessionId}/memory`)).data.datos_declarados.producto_interes.valor, 'AITUE Pro');
+    const detail = await api(`/api/live-chats/${sessionId}`);
+    assert.equal(detail.data.assistantMemory.datos_declarados.producto_interes.valor, 'AITUE Pro');
+    assert.deepEqual(detail.data.lastAiAudit.sourceTitles, [docs[0].title]);
+    assert.equal((await api(`/api/live-chats/${sessionId}`, undefined, '')).res.status, 401);
+    const poll = await api(`/api/web-assistant/poll/${sessionId}`, undefined, webCookie);
+    assert.equal(Object.hasOwn(poll.data, 'assistantMemory'), false);
+    assert.equal(Object.hasOwn(poll.data, 'lastAiAudit'), false);
+    const second = await api('/api/web-assistant/session', {}, '');
+    assert.deepEqual((await api(`/api/chats/${second.data.sessionId}/memory`)).data.datos_declarados, {});
+    assert.deepEqual((await api('/api/config/knowledge')).data.articles, docs);
+    mode = 'invalid';
+    const rejected = await user('revestimiento hidrofóbico');
+    assert.ok(!rejected.data.reply.includes('$999999'));
+    assert.equal(testHooks.activeChats[sessionId].lastAiAudit.status, 'fallback_invalid_or_timeout');
+    assert.equal(JSON.parse(fs.readFileSync(path.join(directory, 'appointments.json'))).length, 0);
+    mode = 'pause';
+    const previousBotMessages = testHooks.activeChats[sessionId].messages.filter(m => m.sender === 'bot').length;
+    assert.equal((await user('revestimiento hidrofóbico')).data.reply, null);
+    assert.equal(testHooks.activeChats[sessionId].messages.filter(m => m.sender === 'bot').length, previousBotMessages);
+    testHooks.customerMemory.flush();
+    assert.ok(fs.existsSync(path.join(directory, 'customer-memory.json')));
+  } finally {
+    await shutdown();
+    await new Promise(resolve => server.close(resolve));
+    const resolved = path.resolve(directory);
+    assert.equal(path.dirname(resolved), path.resolve(os.tmpdir()));
+    assert.ok(path.basename(resolved).startsWith('aitue-grounded-api-'));
+    fs.rmSync(resolved, { recursive: true, force: true });
+  }
+});

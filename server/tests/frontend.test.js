@@ -32,6 +32,7 @@ test('the real admin script loads the panel and QR without overwriting server co
     requests.push({ url, method: options.method || 'GET' });
     const data = {
       '/api/auth/session': { user: 'admin@aitue.net' }, '/api/config/knowledge': fixture,
+      '/api/admin/status': { status: { isBotPaused: false, connectedPhone: null } },
       '/api/operators': [], '/api/whatsapp/status': { status: 'SCAN_QR', qrDataUrl: 'data:image/png;base64,AAAA' },
       '/api/operators/availability': { available: true }
     }[url];

@@ -41,9 +41,10 @@ function boundedHistory(history, userText) {
 }
 function exactKeys(value, keys) { return value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === keys.length && keys.every(k => Object.hasOwn(value, k)); }
 function approvedContacts(text, allowed) {
-  const emailsAndUrls = text.match(/https?:\/\/[^\s)>,]+|[\w.+-]+@[\w.-]+\.[a-z]{2,}/gi) || [];
-  if (emailsAndUrls.some(v => !allowed.toLowerCase().includes(v.toLowerCase().replace(/[.,;]$/, '')))) return false;
-  const phones = text.match(/\+\d[\d\s()-]{7,}\d/g) || [];
+  const tokens = value => (value.match(/https?:\/\/[^\s"')>,]+|[\w.+-]+@[\w.-]+\.[a-z]{2,}/gi) || []).map(v => v.toLowerCase().replace(/[.,;]$/, ''));
+  const allowedTokens = new Set(tokens(allowed));
+  if (tokens(text).some(v => !allowedTokens.has(v))) return false;
+  const phones = (text.match(/\+?\d[\d\s()-]{7,}\d/g) || []).filter(v => v.replace(/\D/g, '').length >= 10);
   const allowedDigits = (allowed.match(/\+?\d[\d\s()-]{7,}\d/g) || []).map(v => v.replace(/\D/g, ''));
   return phones.every(v => allowedDigits.includes(v.replace(/\D/g, '')));
 }
@@ -72,10 +73,10 @@ export function validateGroundedAnswer(value, fragments, { allowedContacts = '',
 
 export class GroundedAssistant {
   constructor({ memory, retriever, fetchImpl = (...args) => fetch(...args), canRespond = () => true, allowedContacts = () => '', onAudit = () => {} }) { Object.assign(this, { memory, retriever, fetchImpl, canRespond, allowedContacts, onAudit }); }
-  async answer({ chatId, userText, history = [], sourceId, systemPrompt, route, fallback, apiKey, model, maxTokens = 300, temperature = 0.5 }) {
+  async answer({ chatId, userText, history = [], sourceId, systemPrompt, route, fallback, apiKey, model, maxTokens = 300, temperature = 0.5, organizationId = '' }) {
     let sources = []; let revision = null; let requestBytes = 0;
     const finish = (status, reply = fallback) => {
-      this.onAudit(chatId, { status, sourceIds: sources.map(f => f.id), revision, requestBytes, at: new Date().toISOString() });
+      this.onAudit(chatId, { status, sourceIds: sources.map(f => f.id), sourceTitles: sources.map(f => String(f.title || '').slice(0, 200)), revision, requestBytes, at: new Date().toISOString() });
       return this.canRespond(chatId) ? reply : null;
     };
     if (!this.canRespond(chatId)) return null;
@@ -106,11 +107,12 @@ export class GroundedAssistant {
     if (!this.memory.consume(chatId)) return finish('fallback_quota');
     try {
       const response = await this.fetchImpl(isNvidia ? 'https://integrate.api.nvidia.com/v1/chat/completions' : 'https://api.openai.com/v1/responses', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` }, body: JSON.stringify(body), signal: AbortSignal.timeout(ASSISTANT_LIMITS.timeoutMs)
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}`, ...(!isNvidia && organizationId ? { 'OpenAI-Organization': organizationId } : {}) }, body: JSON.stringify(body), signal: AbortSignal.timeout(ASSISTANT_LIMITS.timeoutMs)
       });
       if (!this.canRespond(chatId)) return null;
       if (!response.ok) return finish('fallback_provider_error');
       const data = await response.json();
+      if (!this.canRespond(chatId)) return null;
       if (!isNvidia && data.status && data.status !== 'completed') return finish('fallback_incomplete');
       const text = isNvidia ? data.choices?.[0]?.message?.content : data.output?.flatMap(item => item.content || []).filter(item => item.type === 'output_text').map(item => item.text).join('') || data.output_text;
       const parsed = JSON.parse(text);

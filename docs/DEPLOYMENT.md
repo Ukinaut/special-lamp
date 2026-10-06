@@ -60,6 +60,12 @@ las claves correspondientes. Sin clave de IA se usan las respuestas por reglas.
 Las excepciones de números siempre pausados o activos están en
 `server/always-paused-phones.js`. Operativa y Envíos conservan su atención por correo.
 
+Las respuestas con IA recuperan fragmentos de la base existente y usan una memoria
+separada por cliente con vencimiento de 30 días. El panel Live Chat permite revisar
+estos datos. Los límites, la validación y el alcance están en [RAG-MEMORY.md](RAG-MEMORY.md).
+La memoria nueva se conserva en `customer-memory.json` dentro del directorio de datos.
+Para cargar cambios de código, cerrá el programa y volvé a abrir `Iniciar Bot.cmd`.
+
 ## Docker
 
 Copiá `.env.example` a `.env` en una instalación nueva y completá la contraseña

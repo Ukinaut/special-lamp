@@ -607,6 +607,7 @@ document.addEventListener('DOMContentLoaded', () => {
     activeChatChannel.textContent = chat.type === 'whatsapp' ? 'WHATSAPP BOT // REAL' : 'WEB ASSISTANT // PORTAL';
 
     updateBotToggleButtonUI(chat.botPaused, chat.pauseReason);
+    renderChatMemory({});
     loadChatMessages(chat.id);
     loadCustomerProfileCRM(chat.id);
   }
@@ -662,10 +663,33 @@ document.addEventListener('DOMContentLoaded', () => {
       const res = await fetch(`/api/live-chats/${chatId}`);
       if (res.ok) {
         const chatData = await res.json();
+        if (selectedChatId !== chatId) return;
         renderChatMessagesList(chatData.messages);
+        renderChatMemory(chatData);
       }
     } catch (e) {
       console.error('Error obteniendo mensajes del chat:', e);
+    }
+  }
+
+  function renderChatMemory(chatData) {
+    const container = document.getElementById('active-chat-memory');
+    const evidence = document.getElementById('active-chat-ai-evidence');
+    const labels = { equipo: 'Equipo declarado', producto_interes: 'Producto de interés', uso: 'Uso previsto', requiere_instalacion: 'Necesita instalación' };
+    const facts = chatData.assistantMemory?.datos_declarados || {};
+    if (container) {
+      const rows = Object.entries(labels).filter(([field]) => typeof facts[field]?.valor === 'string').map(([field, label]) => {
+        const fact = facts[field];
+        const expires = new Date(fact.expiresAt).toLocaleDateString('es-AR');
+        return `<div style="margin-bottom:6px;"><strong>${label}:</strong> ${escapeHtml(fact.valor)} <span style="color:#94a3b8;">(vence ${escapeHtml(expires)})</span></div>`;
+      });
+      container.innerHTML = rows.length ? rows.join('') : 'Todavía no hay datos declarados guardados.';
+    }
+    if (evidence) {
+      const audit = chatData.lastAiAudit;
+      evidence.textContent = audit?.status === 'grounded'
+        ? `Fuentes de la última consulta de IA: ${[...new Set(audit.sourceTitles || [])].join(', ') || 'base de conocimiento'}.`
+        : audit ? 'En la última consulta de IA se utilizó una respuesta existente o se pidió una aclaración.' : '';
     }
   }
 

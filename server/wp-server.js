@@ -466,7 +466,7 @@ async function generateOpenAIResponse(chatId, userText) {
     chatId, userText, history, sourceId: history.at(-1)?.id,
     systemPrompt: chat?.type === 'web' ? assistantSystemPrompt : customWpSystemPrompt,
     route: routeResult, fallback, apiKey: OPENAI_API_KEY, model: currentModelName,
-    maxTokens: currentMaxTokens, temperature: currentTemperature
+    maxTokens: currentMaxTokens, temperature: currentTemperature, organizationId: OPENAI_ORG_ID
   });
 }
 
@@ -1806,7 +1806,7 @@ app.get('/api/live-chats', (req, res) => {
 app.get('/api/live-chats/:chatId', (req, res) => {
   const { chatId } = req.params;
   const chat = activeChats[chatId] || { id: chatId, messages: [], botPaused: false };
-  res.json(chat);
+  res.json({ ...chat, assistantMemory: customerMemory.context(chatId) });
 });
 
 // SEND operator manual message
