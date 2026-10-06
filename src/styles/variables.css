@@ -1,0 +1,61 @@
+/* AITUE Brand Design System Tokens */
+:root {
+  /* ── AITUE Brand Palette ────────────────────────── */
+  --aitue-space:  #07162F;   /* Darkest background  */
+  --aitue-navy:   #0C234A;   /* Surface / containers */
+  --aitue-blue:   #2C6EDB;   /* Primary action color */
+  --aitue-sky:    #59A8FF;   /* Accent / highlights  */
+  --aitue-ice:    #D7E3F2;   /* Light text / subtle  */
+  --aitue-white:  #FFFFFF;   /* Pure white           */
+
+  /* ── Semantic Aliases ─────────────────────────── */
+  --bg-primary:       var(--aitue-space);
+  --bg-secondary:     var(--aitue-navy);
+  --bg-tertiary:      #0e2a58;
+  --bg-glass:         rgba(12, 35, 74, 0.65);
+  --border-glass:     rgba(89, 168, 255, 0.14);
+  --border-glass-hover: rgba(89, 168, 255, 0.45);
+
+  --text-primary:     var(--aitue-white);
+  --text-secondary:   var(--aitue-ice);
+  --text-muted:       rgba(215, 227, 242, 0.45);
+
+  /* Light panel tokens */
+  --bg-white-panel:   rgba(255, 255, 255, 0.95);
+  --bg-white-glass:   rgba(255, 255, 255, 0.9);
+  --text-dark:        #030712;
+  --text-dark-secondary: #374151;
+  --border-white-glass: rgba(255, 255, 255, 0.85);
+
+  /* ── Brand Accent Colors ──────────────────────── */
+  --color-primary:       var(--aitue-blue);           /* #2C6EDB */
+  --color-primary-glow:  rgba(44, 110, 219, 0.45);
+  --color-accent:        var(--aitue-sky);             /* #59A8FF */
+  --color-accent-glow:   rgba(89, 168, 255, 0.45);
+  --color-cyber:         #7DD3FA;                      /* lighter sky for highlights */
+  --color-cyber-glow:    rgba(125, 211, 250, 0.35);
+  --color-success:       #10b981;
+
+  /* ── Fonts ────────────────────────────────────── */
+  --font-title: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-body:  'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono:  'Share Tech Mono', 'Courier New', Courier, monospace;
+  --font-heading: 'Outfit', sans-serif;
+
+  /* ── Layout & Spacing ─────────────────────────── */
+  --max-width: 1200px;
+  --border-radius-sm: 4px;
+  --border-radius-md: 10px;
+  --border-radius-lg: 18px;
+
+  /* ── Shadow & Glow ────────────────────────────── */
+  --glow-accent:   0 0 18px var(--color-accent-glow);
+  --glow-primary:  0 0 18px var(--color-primary-glow);
+  --glow-cyber:    0 0 15px var(--color-cyber-glow);
+  --shadow-card:   0 8px 32px rgba(0, 0, 0, 0.6);
+
+  /* ── Transitions ─────────────────────────────── */
+  --transition-fast:   0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow:   0.55s cubic-bezier(0.4, 0, 0.2, 1);
+}

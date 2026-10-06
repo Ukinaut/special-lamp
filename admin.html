@@ -1,0 +1,1050 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description"
+    content="AITUE COMUNICA S.A. - Panel de Administración, Base de Conocimiento, Chats en Vivo y CRM Inteligente." />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;700;800&family=Share+Tech+Mono&display=swap"
+    rel="stylesheet" />
+
+  <!-- Tab Icon -->
+  <link rel="icon" type="image/jpg" href="/src/assets/logo-icon-blue.jpg" />
+  <link rel="stylesheet" href="/src/styles/admin.css" />
+  <title>Admin Dashboard | AITUE COMUNICA S.A.</title>
+
+</head>
+
+<body class="admin-body">
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- 1. LOGIN OVERLAY SCREEN (ACCESO LIBRE DIRECTO)           -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div class="admin-login-screen" id="admin-login-view" style="display: flex;">
+    <div class="login-card">
+      <div class="login-brand">
+        <img src="/src/assets/Log-win-nav.png" alt="AITUE Logo" />
+        <h2 class="login-title">PANEL DE ADMINISTRACIÓN</h2>
+        <span class="login-subtitle">// GESTIÓN OPENAI & ENTRENAMIENTO IA //</span>
+      </div>
+
+      <form id="admin-login-form" style="display:flex; flex-direction:column; gap:1.2rem;">
+        <div class="form-group-admin">
+          <label class="admin-label" for="login-email">Usuario / Correo Administrador</label>
+          <input type="text" id="login-email" class="admin-input" value="admin@aitue.net" placeholder="admin@aitue.net" autocomplete="username" />
+        </div>
+
+        <div class="form-group-admin">
+          <label class="admin-label" for="login-password">Contraseña</label>
+          <input type="password" id="login-password" class="admin-input" placeholder="Contraseña de administración" autocomplete="current-password" />
+        </div>
+
+        <div id="login-feedback-msg" class="login-msg"></div>
+
+        <button type="submit" class="btn-admin-primary" id="login-submit-btn">
+          INGRESAR AL PANEL DE ADMIN <span>→</span>
+        </button>
+
+        <a href="/" class="btn-admin-ghost" style="text-align:center; text-decoration:none; margin-top:0.4rem;">
+          ← Volver al sitio web principal
+        </a>
+      </form>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- 2. MAIN ADMIN DASHBOARD VIEW                            -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div class="admin-container" id="admin-dashboard-view" style="display: none;">
+
+    <!-- TOP HEADER BAR (STATUS NAV) -->
+    <header class="admin-header-bar">
+      <div class="admin-header-left">
+        <img src="/src/assets/Log-win-nav.png" alt="AITUE Logo" />
+        <div>
+          <h1 class="admin-page-title">AITUE Admin Hub</h1>
+          <span style="font-family:'Share Tech Mono', monospace; font-size:0.75rem; color:#94a3b8;">
+            Sesión: <strong id="admin-user-display" style="color:#59A8FF;">admin@aitue.net</strong>
+          </span>
+        </div>
+      </div>
+
+      <div class="admin-header-status">
+        <!-- API Connection Status Badge -->
+        <div class="status-pill-container" id="header-api-badge">
+          <span id="api-status-dot" class="status-indicator status-offline"></span>
+          <span id="api-status-text">API Meta: Desconectado</span>
+        </div>
+
+        <!-- Bot Funcionamiento Switch -->
+        <div class="bot-toggle-container">
+          <span style="font-size:0.72rem; color:#94a3b8; font-family:'Share Tech Mono', monospace; font-weight:600;">FUNCIONAMIENTO:</span>
+          <label class="switch">
+            <input type="checkbox" id="global-bot-toggle" checked>
+            <span class="slider"></span>
+          </label>
+          <span id="bot-status-badge" class="badge-status-on">ON</span>
+        </div>
+
+        <!-- Bot Restart Button -->
+        <button id="header-restart-bot-btn" class="btn-restart-action" title="Reiniciar Bot / Servidor">
+          <span class="restart-icon">⚡</span>
+          <span class="restart-text">Reiniciar Bot</span>
+        </button>
+
+        <button class="btn-admin-ghost" id="admin-logout-btn">Cerrar Sesión</button>
+      </div>
+    </header>
+
+    <!-- SIDEBAR NAVIGATION (Navegación Lateral Izquierda) -->
+    <aside class="admin-sidebar">
+      <nav class="sidebar-nav-list">
+        
+        <div class="sidebar-section-title">MAIN HUB</div>
+        <button class="sidebar-nav-item active" data-tab="tab-dashboard">
+          <span class="nav-icon">🏠</span> 
+          <span class="nav-text">Centro de Control</span>
+        </button>
+        <button class="sidebar-nav-item" data-tab="tab-live-chats">
+          <span class="nav-icon">💬</span> 
+          <span class="nav-text">Chats en Vivo</span>
+          <span id="sidebar-live-count" class="sidebar-nav-badge" style="display:none;">0</span>
+        </button>
+
+        <div class="sidebar-section-title">GESTIÓN DE CLIENTES</div>
+        <button class="sidebar-nav-item" data-tab="tab-crm-directory">
+          <span class="nav-icon">👤</span> 
+          <span class="nav-text">Directorio CRM</span>
+        </button>
+        <button class="sidebar-nav-item" data-tab="tab-appointments">
+          <span class="nav-icon">📅</span> 
+          <span class="nav-text">Agenda de Citas</span>
+        </button>
+
+        <div class="sidebar-section-title">CONFIGURACIÓN IA</div>
+        <button class="sidebar-nav-item" data-tab="tab-knowledge">
+          <span class="nav-icon">🧠</span> 
+          <span class="nav-text">Memoria & RAG</span>
+        </button>
+        <button class="sidebar-nav-item" data-tab="tab-whatsapp-bot">
+          <span class="nav-icon">📲</span> 
+          <span class="nav-text">Bot WhatsApp & QR</span>
+        </button>
+        <button class="sidebar-nav-item" data-tab="tab-openai">
+          <span class="nav-icon">⚙️</span> 
+          <span class="nav-text">OpenAI API</span>
+        </button>
+
+        <div class="sidebar-section-title">SISTEMA</div>
+        <button class="sidebar-nav-item" data-tab="tab-users">
+          <span class="nav-icon">👥</span> 
+          <span class="nav-text">Equipo & Admins</span>
+        </button>
+        <button class="sidebar-nav-item" data-tab="tab-analytics">
+          <span class="nav-icon">📊</span> 
+          <span class="nav-text">Métricas & Logs</span>
+        </button>
+
+      </nav>
+
+      <div class="sidebar-footer-info">
+        <div class="sidebar-info-card">
+          <div class="info-dot"></div>
+          <div>
+            <div class="info-title">SISTEMA AITUE v2.0</div>
+            <div class="info-sub">Backend: Localhost:3001</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT AREA -->
+    <main class="admin-main-content">
+      <!-- ═══════════════════════════════════════════════════════ -->
+      <!-- TAB 0: CENTRO DE CONTROL GENERAL (COMMAND CENTER)        -->
+      <!-- ═══════════════════════════════════════════════════════ -->
+      <!-- ═══════════════════════════════════════════════════════ -->
+      <!-- TAB 0: CENTRO DE CONTROL GENERAL (COMMAND CENTER)        -->
+      <!-- ═══════════════════════════════════════════════════════ -->
+      <!-- ═══════════════════════════════════════════════════════ -->
+      <!-- TAB 0: CENTRO DE CONTROL GENERAL (COMMAND CENTER & IA)   -->
+      <!-- ═══════════════════════════════════════════════════════ -->
+      <div class="tab-content-view active" id="tab-dashboard">
+        
+        <!-- AITUE BOT CYBERPUNK METRICS HERO BOX (User Specified Panel at Top) -->
+        <div class="aitue-bot-panel-mock" style="margin-bottom: 1.8rem;">
+          <div class="panel-mock-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <span>AITUE BOT // DESEMPEÑO & IA</span>
+            <span class="status-badge-pill active" style="font-size:0.68rem; padding:3px 10px; background:rgba(0,245,212,0.15); color:#00f5d4; font-weight:700;">LIVE MONITOR</span>
+          </div>
+
+          <!-- TOP 3 NUMERIC COUNTERS -->
+          <div class="panel-mock-counters">
+            <div class="counter-box">
+              <div class="counter-num" id="mock-conversations-count">128</div>
+              <div class="counter-lbl">CONVERSACIONES</div>
+            </div>
+            <div class="counter-box">
+              <div class="counter-num" id="mock-customers-count">37</div>
+              <div class="counter-lbl">CLIENTES</div>
+            </div>
+            <div class="counter-box">
+              <div class="counter-num" id="mock-leads-count">12</div>
+              <div class="counter-lbl">VENTAS POTENCIAL</div>
+            </div>
+          </div>
+
+          <!-- PROGRESS BAR WRAPPER -->
+          <div class="panel-mock-progress-wrap">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span class="progress-lbl">Conversaciones hoy (Desglose de resolución)</span>
+              <span style="font-family:'Share Tech Mono', monospace; font-size:0.72rem; color:#00f5d4;">Auto-Sync 3s</span>
+            </div>
+            <div class="progress-bar-glow">
+              <div class="progress-fill" id="mock-progress-bar-fill" style="width: 72%;"></div>
+            </div>
+          </div>
+
+          <!-- RESOLUTION BREAKDOWN WITH PERCENTAGES + QUANTITIES -->
+          <div class="panel-mock-list">
+            <div class="list-row">
+              <span>🤖 Resueltas por IA</span>
+              <span id="mock-ia-resolved-pct" style="color:#00f5d4; font-family:'Share Tech Mono', monospace; font-weight:700;">72% (92 chats)</span>
+            </div>
+            <div class="list-row">
+              <span>👥 Derivadas a humano</span>
+              <span id="mock-human-resolved-pct" style="color:#59a8ff; font-family:'Share Tech Mono', monospace; font-weight:700;">18% (23 chats)</span>
+            </div>
+            <div class="list-row">
+              <span>⏳ Pendientes</span>
+              <span id="mock-pending-resolved-pct" style="color:#ffb703; font-family:'Share Tech Mono', monospace; font-weight:700;">10% (13 chats)</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <!-- TAB 1: CHATS EN VIVO (LIVE CHAT HUB & CRM PANEL)          -->
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <div class="tab-content-view" id="tab-live-chats">
+      <div class="livechat-container">
+
+        <!-- Column 1: Chats List Sidebar -->
+        <div class="livechat-sidebar">
+          <div class="livechat-sidebar-header" style="display:flex; flex-direction:column; gap:6px; padding:0.8rem;">
+            <input type="text" id="livechat-search" class="admin-input" placeholder="🔍 Buscar conversación..."
+              style="font-size:0.8rem; padding:0.5rem 0.8rem;" />
+            <select id="livechat-area-filter" class="admin-select"
+              style="font-size:0.75rem; padding:0.4rem 0.6rem; background:#0f172a; color:#f8fafc; border:1px solid #334155; border-radius:6px;">
+              <option value="ALL">🌐 Todas las Áreas (Filtro General)</option>
+              <option value="PRODUCTO_INFO">🛒 Productos (Información)</option>
+              <option value="PRODUCTO_COMERCIAL">💼 Ventas y Cotizaciones</option>
+              <option value="PRODUCTO_TECNICO">🛠️ Soporte Técnico</option>
+              <option value="INTERNET_COMERCIAL">🛰️ Internet Comercial</option>
+              <option value="INTERNET_SOPORTE">📡 Internet Soporte</option>
+              <option value="PAGO">💳 Pagos</option>
+              <option value="ENVIO_MERCADOLIBRE">📦 Envíos y Mercado Libre</option>
+              <option value="B2B">🏢 Empresas / Flotas (B2B)</option>
+              <option value="VISITA_COMERCIAL">🤝 Visita Comercial</option>
+              <option value="EMPRESA_INFO">ℹ️ Información Institucional</option>
+              <option value="OPERATIVA">⚙️ Operativa / Fallback</option>
+            </select>
+          </div>
+          <div class="livechat-threads-list" id="livechat-threads-container">
+            <!-- Rendered dynamically -->
+            <div style="text-align:center; padding:2rem; color:#64748b; font-size:0.85rem;">Obteniendo conversaciones...
+            </div>
+          </div>
+        </div>
+
+        <!-- Column 2: Chat View Area -->
+        <div class="livechat-main">
+          <div id="livechat-view-active" style="display:none; flex-direction:column; height:100%;">
+
+            <!-- Active Chat Header -->
+            <div class="livechat-header">
+              <div style="display:flex; align-items:center; gap:10px;">
+                <div class="chat-avatar-status">
+                  <img src="/src/assets/logo-icon-blue.jpg" alt="Avatar" class="chat-avatar" id="active-chat-avatar" />
+                  <span class="chat-status-dot active"></span>
+                </div>
+                <div>
+                  <h4 class="sim-title" id="active-chat-name">Cliente</h4>
+                  <span class="sim-tag" id="active-chat-channel"
+                    style="color:#59A8FF; font-family:'Share Tech Mono', monospace;">WEB ASSISTANT</span>
+                </div>
+              </div>
+
+              <!-- Quick Bot Pause Controller -->
+              <div style="display:flex; align-items:center; gap:10px;">
+                <span style="font-size:0.75rem; color:#94a3b8; font-family:'Share Tech Mono', monospace;">RESPUESTA
+                  IA:</span>
+                <button class="btn-admin-success" id="active-chat-bot-toggle"
+                  style="padding:4px 10px; font-size:0.7rem; font-weight:700;">
+                  ACTIVO
+                </button>
+                <button class="btn-admin-ghost" id="active-chat-close-btn"
+                  style="padding:4px 10px; font-size:0.7rem; color:#ff4d6d; border-color:rgba(255,77,109,0.3);">
+                  Cerrar Chat & Resumir
+                </button>
+              </div>
+            </div>
+
+            <!-- Messages Window -->
+            <div class="livechat-messages-wrap" id="active-chat-messages">
+              <!-- Message bubbles -->
+            </div>
+
+            <!-- Input Form Area -->
+            <form id="livechat-input-form" class="livechat-input-area" onsubmit="return false;">
+              <input type="text" id="livechat-msg-input" class="admin-input"
+                placeholder="Escribe un mensaje como operador..." autocomplete="off" />
+              <button type="submit" class="btn-admin-primary" id="livechat-send-btn">Enviar</button>
+            </form>
+
+          </div>
+          <div id="livechat-view-empty"
+            style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:#64748b; padding:2rem; text-align:center;">
+            <span style="font-size:3rem; margin-bottom:1rem;">💬</span>
+            <h3 style="margin:0 0 0.5rem 0; color:#cbd5e1; font-family:'Outfit', sans-serif;">Live Chat Hub</h3>
+            <p style="margin:0; font-size:0.85rem; max-width:320px;">Selecciona una conversación de la barra lateral
+              para ver los mensajes e interactuar en vivo.</p>
+          </div>
+        </div>
+
+        <!-- Column 3: CRM Profile Sidebar (Collapsible) -->
+        <div class="livechat-crm-sidebar" id="livechat-crm-panel" style="display:none;">
+          <div class="crm-sidebar-header">
+            <h3 style="margin:0; font-family:'Outfit', sans-serif; font-size:1.05rem; color:#ffffff;">👤 Perfil del
+              Cliente</h3>
+            <button id="crm-save-profile-btn" class="btn-admin-success" style="font-size:0.75rem; padding:4px 10px;">💾
+              Guardar</button>
+          </div>
+
+          <div class="crm-sidebar-scrollable">
+            <input type="hidden" id="crm-client-id" />
+
+            <!-- Tags & Status -->
+            <div class="crm-field-group">
+              <label class="admin-label">Etiqueta del Cliente</label>
+              <select id="crm-client-tag" class="admin-select">
+                <option value="🟢 Nuevo">🟢 Nuevo</option>
+                <option value="🔵 Cliente">🔵 Cliente</option>
+                <option value="🟡 Potencial cliente">🟡 Potencial cliente</option>
+                <option value="🟠 Seguimiento">🟠 Seguimiento</option>
+                <option value="🔴 Reclamo">🔴 Reclamo</option>
+                <option value="🟣 Soporte técnico">🟣 Soporte técnico</option>
+                <option value="⚫ Sin interés">⚫ Sin interés</option>
+              </select>
+            </div>
+
+            <div class="crm-field-group">
+              <label class="admin-label">Estado de Conversación</label>
+              <select id="crm-client-status" class="admin-select">
+                <option value="Nuevo">Nuevo</option>
+                <option value="Atendiendo">Atendiendo</option>
+                <option value="Esperando cliente">Esperando cliente</option>
+                <option value="Seguimiento">Seguimiento</option>
+                <option value="Cerrado">Cerrado</option>
+              </select>
+            </div>
+
+            <!-- Collapsible Section 1: Datos Contacto -->
+            <details class="crm-section-detail" open>
+              <summary>📋 Datos de Contacto</summary>
+              <div class="crm-field-group" style="margin-top:0.6rem;">
+                <label class="admin-label">Nombre</label>
+                <input type="text" id="crm-client-name" class="admin-input" />
+              </div>
+              <div class="crm-field-group">
+                <label class="admin-label">Empresa</label>
+                <input type="text" id="crm-client-company" class="admin-input" />
+              </div>
+              <div class="crm-field-group">
+                <label class="admin-label">Email</label>
+                <input type="email" id="crm-client-email" class="admin-input" />
+              </div>
+              <div class="crm-field-group">
+                <label class="admin-label">Teléfono</label>
+                <input type="text" id="crm-client-phone" class="admin-input" readonly />
+              </div>
+            </details>
+
+            <!-- Collapsible Section 2: Productos & Equipamiento -->
+            <details class="crm-section-detail" open>
+              <summary>📡 Productos & Equipos</summary>
+              <div class="crm-field-group" style="margin-top:0.6rem;">
+                <label class="admin-label">Productos Adquiridos/Cotizados</label>
+                <input type="text" id="crm-client-products" class="admin-input"
+                  placeholder="Ej. Kit Standard 2, DBP..." />
+              </div>
+              <div class="crm-field-group">
+                <label class="admin-label">Equipos Instalados</label>
+                <textarea id="crm-client-devices" class="admin-textarea" rows="2"
+                  placeholder="Listado de terminales o kits..."></textarea>
+              </div>
+            </details>
+
+            <!-- Collapsible Section 3: Memoria de Casos -->
+            <details class="crm-section-detail" open>
+              <summary>🧠 Consultas & Problemas</summary>
+              <div class="crm-field-group" style="margin-top:0.6rem;">
+                <label class="admin-label">Consultas Anteriores</label>
+                <textarea id="crm-client-queries" class="admin-textarea" rows="2"
+                  placeholder="Consultas sobre cotización..."></textarea>
+              </div>
+              <div class="crm-field-group">
+                <label class="admin-label">Problemas / Reclamos</label>
+                <textarea id="crm-client-problems" class="admin-textarea" rows="2"
+                  placeholder="Fallas reportadas..."></textarea>
+              </div>
+              <div class="crm-field-group">
+                <label class="admin-label">Intereses Destacados</label>
+                <input type="text" id="crm-client-interests" class="admin-input"
+                  placeholder="Ej. Redundancia LTE, Movilidad" />
+              </div>
+            </details>
+
+            <!-- Collapsible Section 4: Agenda de Citas -->
+            <details class="crm-section-detail">
+              <summary>📅 Próxima Atención</summary>
+              <div style="padding-top:0.6rem; display:flex; flex-direction:column; gap:0.6rem;">
+                <div class="crm-field-group">
+                  <label class="admin-label">Fecha Programada</label>
+                  <input type="date" id="crm-appt-date" class="admin-input" />
+                </div>
+                <div class="crm-field-group">
+                  <label class="admin-label">Hora</label>
+                  <input type="time" id="crm-appt-time" class="admin-input" />
+                </div>
+                <div class="crm-field-group">
+                  <label class="admin-label">Asesor Asignado</label>
+                  <input type="text" id="crm-appt-operator" class="admin-input" />
+                </div>
+                <div class="crm-field-group">
+                  <label class="admin-label">Área</label>
+                  <input type="text" id="crm-appt-area" class="admin-input" />
+                </div>
+                <div class="crm-field-group">
+                  <label class="admin-label">Notas de la Cita</label>
+                  <textarea id="crm-appt-notes" class="admin-textarea" rows="2"></textarea>
+                </div>
+              </div>
+            </details>
+
+            <!-- Section 5: Notas Internas -->
+            <div class="crm-field-group"
+              style="margin-top:0.8rem; border-top:1px solid rgba(255,255,255,0.08); padding-top:0.8rem;">
+              <label class="admin-label">Notas Internas Generales</label>
+              <textarea id="crm-client-notes" class="admin-textarea" rows="3"
+                placeholder="Comentarios privados del operador..."></textarea>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <!-- TAB 2: DIRECTORIO DE CLIENTES (CRM DIRECTORY)            -->
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <div class="tab-content-view" id="tab-crm-directory">
+      <div class="admin-cards-grid">
+
+        <!-- Add Customer Manual Form -->
+        <div class="admin-card">
+          <h3 class="admin-card-title">👤 Registrar Nuevo Cliente Manualmente</h3>
+          <p class="admin-card-desc">Registra prospectos comerciales o cuentas corporativas para que la IA los
+            reconozca.</p>
+
+          <form id="crm-manual-client-form" style="display:flex; flex-direction:column; gap:1rem; margin-top:0.8rem;"
+            onsubmit="return false;">
+            <div class="form-group-admin">
+              <label class="admin-label" for="manual-client-id">ID Único / Teléfono (JID de WhatsApp o sesión)</label>
+              <input type="text" id="manual-client-id" class="admin-input"
+                placeholder="5491154565634@s.whatsapp.net o session_12" required />
+            </div>
+            <div class="form-group-admin">
+              <label class="admin-label" for="manual-client-name">Nombre y Apellido</label>
+              <input type="text" id="manual-client-name" class="admin-input" required />
+            </div>
+            <div class="form-group-admin">
+              <label class="admin-label" for="manual-client-company">Empresa / Cuenta</label>
+              <input type="text" id="manual-client-company" class="admin-input" />
+            </div>
+            <div class="form-group-admin">
+              <label class="admin-label" for="manual-client-email">Email Corporativo</label>
+              <input type="email" id="manual-client-email" class="admin-input" />
+            </div>
+            <div class="form-group-admin">
+              <label class="admin-label" for="manual-client-tag">Etiqueta de Ingreso</label>
+              <select id="manual-client-tag" class="admin-select">
+                <option value="🟢 Nuevo">🟢 Nuevo</option>
+                <option value="🔵 Cliente">🔵 Cliente</option>
+                <option value="🟡 Potencial cliente">🟡 Potencial cliente</option>
+                <option value="🟠 Seguimiento">🟠 Seguimiento</option>
+                <option value="🟣 Soporte técnico">🟣 Soporte técnico</option>
+              </select>
+            </div>
+            <div class="form-group-admin">
+              <label class="admin-label" for="manual-client-notes">Notas / Requerimiento inicial</label>
+              <textarea id="manual-client-notes" class="admin-textarea" rows="3"></textarea>
+            </div>
+            <button type="submit" class="btn-admin-success" id="crm-manual-submit-btn">➕ Registrar en CRM</button>
+          </form>
+        </div>
+
+        <!-- CRM Contacts List -->
+        <div class="admin-card" style="grid-column: span 2;">
+          <div
+            style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem; margin-bottom:1rem;">
+            <h3 class="admin-card-title" style="margin:0;">👤 Fichas de Clientes Registrados</h3>
+            <input type="text" id="crm-directory-search" class="admin-input" placeholder="🔍 Buscar cliente..."
+              style="max-width:260px;" />
+          </div>
+          <div class="admin-table-wrap">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Contacto / ID</th>
+                  <th>Empresa</th>
+                  <th>Etiqueta</th>
+                  <th>Estado</th>
+                  <th>Última Interacción</th>
+                  <th>Acción</th>
+                </tr>
+              </thead>
+              <tbody id="crm-directory-table-body">
+                <!-- Rows loaded dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <!-- TAB 3: AGENDA DE CITAS (CALENDAR & RULES)                -->
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <div class="tab-content-view" id="tab-appointments">
+      <div class="admin-cards-grid">
+
+        <!-- Scheduler configuration rules form -->
+        <div class="admin-card">
+          <h3 class="admin-card-title">⚙️ Reglas de Configuración de Agenda</h3>
+          <p class="admin-card-desc">Define las restricciones horarias y de capacidad del bot al agendar citas.</p>
+
+          <form id="appt-rules-form" style="display:flex; flex-direction:column; gap:1.2rem; margin-top:0.8rem;"
+            onsubmit="return false;">
+            <div class="form-group-admin">
+              <label class="admin-label">Días Laborales de Atención</label>
+              <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:0.4rem; margin-top:0.2rem;">
+                <label style="font-size:0.8rem; color:#cbd5e1;"><input type="checkbox" name="workDay" value="1"
+                    checked /> Lun</label>
+                <label style="font-size:0.8rem; color:#cbd5e1;"><input type="checkbox" name="workDay" value="2"
+                    checked /> Mar</label>
+                <label style="font-size:0.8rem; color:#cbd5e1;"><input type="checkbox" name="workDay" value="3"
+                    checked /> Mié</label>
+                <label style="font-size:0.8rem; color:#cbd5e1;"><input type="checkbox" name="workDay" value="4"
+                    checked /> Jue</label>
+                <label style="font-size:0.8rem; color:#cbd5e1;"><input type="checkbox" name="workDay" value="5"
+                    checked /> Vie</label>
+                <label style="font-size:0.8rem; color:#cbd5e1;"><input type="checkbox" name="workDay" value="6" />
+                  Sáb</label>
+                <label style="font-size:0.8rem; color:#cbd5e1;"><input type="checkbox" name="workDay" value="0" />
+                  Dom</label>
+              </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:1rem;">
+              <div class="form-group-admin">
+                <label class="admin-label" for="appt-open-time">Hora Apertura</label>
+                <input type="time" id="appt-open-time" class="admin-input" value="09:00" />
+              </div>
+              <div class="form-group-admin">
+                <label class="admin-label" for="appt-close-time">Hora Cierre</label>
+                <input type="time" id="appt-close-time" class="admin-input" value="18:30" />
+              </div>
+            </div>
+
+            <div class="form-group-admin">
+              <label class="admin-label" for="appt-duration">Duración de Cita (Minutos)</label>
+              <select id="appt-duration" class="admin-select">
+                <option value="30">30 Minutos</option>
+                <option value="45">45 Minutos</option>
+                <option value="60">60 Minutos</option>
+              </select>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:1rem;">
+              <div class="form-group-admin">
+                <label class="admin-label" for="appt-advance-hours">Anticipación Mínima</label>
+                <select id="appt-advance-hours" class="admin-select">
+                  <option value="2">2 Horas</option>
+                  <option value="12">12 Horas</option>
+                  <option value="24">24 Horas</option>
+                </select>
+              </div>
+              <div class="form-group-admin">
+                <label class="admin-label" for="appt-max-concurrent">Capacidad Simultánea</label>
+                <input type="number" id="appt-max-concurrent" class="admin-input" min="1" max="10" value="1" />
+              </div>
+            </div>
+
+            <div class="form-group-admin">
+              <label class="admin-label" for="appt-blocked-dates">Fechas Bloqueadas / Feriados (Separados por
+                coma)</label>
+              <input type="text" id="appt-blocked-dates" class="admin-input" placeholder="2026-08-25, 2026-09-11" />
+            </div>
+
+            <button type="submit" class="btn-admin-success" id="save-appt-rules-btn">💾 Guardar Reglas de
+              Agenda</button>
+          </form>
+        </div>
+
+        <!-- Appointment Calendar List -->
+        <div class="admin-card" style="grid-column: span 2;">
+          <h3 class="admin-card-title">📅 Agenda de Citas Reservadas</h3>
+          <p class="admin-card-desc">Historial de turnos activos agendados conversacionalmente por el bot de WhatsApp o
+            Web.</p>
+
+          <div class="admin-table-wrap" style="margin-top:1rem;">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Hora</th>
+                  <th>Cliente</th>
+                  <th>Asesor</th>
+                  <th>Área</th>
+                  <th>Requerimiento / Notas</th>
+                  <th>Recordatorio</th>
+                </tr>
+              </thead>
+              <tbody id="appts-table-body">
+                <!-- Loaded dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <!-- TAB 4: CONFIGURACIÓN OPENAI                             -->
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <div class="tab-content-view" id="tab-openai">
+      <div class="admin-cards-grid">
+
+        <div class="admin-card" style="grid-column: span 2;">
+          <h3 class="admin-card-title">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+            Credenciales & Modelo OpenAI API
+          </h3>
+          <p class="admin-card-desc">
+            Ingresá tu clave API de OpenAI para conectar el Asistente Virtual Web y el Bot de WhatsApp con inteligencia
+            artificial en tiempo real.
+          </p>
+
+          <form id="openai-config-form" style="display:flex; flex-direction:column; gap:1.2rem; margin-top:0.5rem;"
+            onsubmit="return false;">
+            <div class="form-group-admin">
+              <label class="admin-label" for="cfg-api-key">API Key de IA (NVIDIA o OpenAI)</label>
+              <div style="display:flex; gap:0.6rem;">
+                <input type="password" id="cfg-api-key" class="admin-input"
+                  placeholder="Dejar vacío para conservar la clave del servidor" />
+                <button type="button" class="btn-admin-ghost" id="toggle-show-key">Mostrar</button>
+              </div>
+            </div>
+
+            <div class="form-group-admin">
+              <label class="admin-label" for="cfg-whisper-key">🎙️ Clave para Transcripción de Audio / Voz (Groq o
+                OpenAI Key)</label>
+              <div style="display:flex; gap:0.6rem;">
+                <input type="password" id="cfg-whisper-key" class="admin-input"
+                  placeholder="Dejar vacío para conservar la clave de audio" />
+              </div>
+              <span style="font-size:0.72rem; color:#94a3b8; margin-top:3px; display:block;">
+                * Permite convertir notas de voz entrantes de WhatsApp a texto en español usando Whisper (la disponibilidad depende del proveedor).
+              </span>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:1.2rem;">
+              <div class="form-group-admin">
+                <label class="admin-label" for="cfg-model">Modelo de Lenguaje</label>
+                <select id="cfg-model" class="admin-select">
+                  <option value="meta/llama-3.1-8b-instruct">meta/llama-3.1-8b-instruct (⚡ Respuesta Instantánea ~1.4s /
+                    Recomendado WhatsApp)</option>
+                  <option value="meta/llama-3.3-70b-instruct">meta/llama-3.3-70b-instruct (🚀 Alta Capacidad 70B)
+                  </option>
+                  <option value="openai/gpt-oss-120b">openai/gpt-oss-120b (🧠 Razonamiento Profundo NVIDIA)</option>
+                  <option value="gpt-5.6-luna" selected>gpt-5.6-luna (GPT-5.6 Luna Oficial AITUE)</option>
+                  <option value="gpt-4o-mini">gpt-4o-mini (OpenAI Oficial)</option>
+                  <option value="gpt-4o">gpt-4o (OpenAI Oficial Alta Precisión)</option>
+                </select>
+              </div>
+
+              <div class="form-group-admin">
+                <label class="admin-label" for="cfg-max-tokens">Max Tokens por Respuesta</label>
+                <input type="number" id="cfg-max-tokens" class="admin-input" min="100" max="2000" step="50"
+                  value="500" />
+              </div>
+            </div>
+
+            <div class="form-group-admin">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <label class="admin-label" for="cfg-temperature">Creatividad / Temperatura: <span id="temp-val-display"
+                    style="color:var(--admin-accent);">0.5</span></label>
+              </div>
+              <input type="range" id="cfg-temperature" min="0.0" max="1.0" step="0.05" value="0.5"
+                style="width:100%; accent-color:var(--admin-accent);" />
+            </div>
+
+            <div id="openai-test-feedback" class="login-msg" style="margin-top:0.4rem;"></div>
+
+            <div style="display:flex; gap:1rem; margin-top:0.5rem;">
+              <button type="submit" class="btn-admin-success" id="save-openai-btn">
+                💾 Guardar Configuración
+              </button>
+              <button type="button" class="btn-admin-primary" id="test-openai-btn">
+                ⚡ Probar Conexión OpenAI
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <div class="admin-card">
+          <h3 class="admin-card-title">⚡ Estado del Sistema</h3>
+          <div style="display:flex; flex-direction:column; gap:0.8rem; font-size:0.85rem;">
+            <div
+              style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:0.4rem;">
+              <span style="color:#94a3b8;">Servidor Backend:</span>
+              <span style="color:#00f5d4; font-family:'Share Tech Mono', monospace; font-weight:bold;">ONLINE (Puerto
+                3001)</span>
+            </div>
+            <div
+              style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:0.4rem;">
+              <span style="color:#94a3b8;">Base de Datos:</span>
+              <span style="color:#00f5d4; font-family:'Share Tech Mono', monospace; font-weight:bold;">Sincronizada
+                JSON</span>
+            </div>
+            <div
+              style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:0.4rem;">
+              <span style="color:#94a3b8;">API Whisper:</span>
+              <span id="sys-whisper-status"
+                style="color:#94a3b8; font-family:'Share Tech Mono', monospace; font-weight:bold;">Inactivo (sin
+                gsk_...)</span>
+            </div>
+            <div style="display:flex; justify-content:space-between;">
+              <span style="color:#94a3b8;">Uptime Bot:</span>
+              <span style="color:#cbd5e1; font-family:'Share Tech Mono', monospace;">24/7 Activo</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <!-- TAB 5: MEMORIA RAG & PAUTAS CORPORATIVAS                 -->
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <div class="tab-content-view" id="tab-knowledge">
+      <div class="admin-cards-grid">
+
+        <!-- Add New Training Document Form -->
+        <div class="admin-card" style="grid-column: span 1;">
+          <h3 class="admin-card-title">🧠 Agregar Pauta de Conocimiento</h3>
+          <p class="admin-card-desc">
+            Enseñale a la IA cómo responder sobre la empresa, productos, precios y pautas de atención para los clientes.
+          </p>
+
+          <form id="add-kb-form" style="display:flex; flex-direction:column; gap:1rem; margin-top:0.5rem;"
+            onsubmit="return false;">
+            <div class="form-group-admin">
+              <label class="admin-label" for="kb-category">Categoría de Conocimiento</label>
+              <select id="kb-category" class="admin-select">
+                <option value="Empresa & Visión Corporativa">Empresa & Visión Corporativa</option>
+                <option value="Soluciones, Accesorios y Servicios">Soluciones, Accesorios y Servicios</option>
+                <option value="Protocolos de Atención & Tono">Protocolos de Atención & Tono</option>
+                <option value="Derivaciones Contacto">Derivaciones Contacto</option>
+              </select>
+            </div>
+
+            <div class="form-group-admin">
+              <label class="admin-label" for="kb-title">Título del Documento / Regla</label>
+              <input type="text" id="kb-title" class="admin-input"
+                placeholder="Ej. Protocolo de atención para minería..." required />
+            </div>
+
+            <div class="form-group-admin">
+              <label class="admin-label" for="kb-content">Contenido / Pautas de Respuesta</label>
+              <textarea id="kb-content" class="admin-textarea" rows="8"
+                placeholder="Escribí aquí las explicaciones, precios, ventajas o la forma exacta en que la IA debe interactuar..."
+                required></textarea>
+            </div>
+
+            <button type="submit" class="btn-admin-success" id="save-kb-btn">
+              ➕ Guardar en Base de Conocimientos
+            </button>
+          </form>
+
+          <!-- High Visibility Bot Restart Action Block -->
+          <div
+            style="margin-top: 1.5rem; padding-top: 1.2rem; border-top: 1px solid rgba(89, 168, 255, 0.25); display: flex; flex-direction: column; gap: 0.6rem;">
+            <label class="admin-label"
+              style="color: #ff4d6d; font-size: 0.85rem; font-weight: bold; display: flex; align-items: center; gap: 6px;">
+              ⚡ CONTROL DE REINICIO DEL BOT (APAGAR Y PRENDER)
+            </label>
+            <p class="admin-card-desc" style="font-size: 0.76rem; color: #cbd5e1; margin: 0; line-height: 1.35;">
+                Reinicia la conexión y vuelve a cargar el conocimiento del bot. <strong
+                  style="color: #00f5d4;">Conserva la sesión guardada</strong> para volver a conectar.
+            </p>
+            <button type="button" id="restart-bot-card-btn" class="btn-admin-danger"
+              style="width: 100%; padding: 0.85rem; font-size: 0.88rem; font-weight: 700; background: linear-gradient(135deg, #ff4d6d 0%, #d90429 100%); color: #ffffff; border: 1px solid #ff4d6d; border-radius: 8px; cursor: pointer; box-shadow: 0 0 15px rgba(255,77,109,0.4); transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 0.5px;">
+              ⚡ REINICIAR BOT EN VIVO (APAGAR / PRENDER)
+            </button>
+          </div>
+        </div>
+
+        <!-- Knowledge Cards List -->
+        <div class="admin-card" style="grid-column: span 2;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+            <div style="display:flex; align-items:center; gap:0.8rem;">
+              <h3 class="admin-card-title" style="margin:0;">📚 Memoria & Documentos Guardados</h3>
+              <button type="button" class="btn-admin-ghost" id="reset-kb-btn"
+                style="padding:4px 10px; font-size:0.75rem; color:#00f5d4; border-color:rgba(0,245,212,0.4);">
+                🔄 Restaurar Pautas Oficiales
+              </button>
+              <button type="button" class="btn-admin-ghost" id="restart-bot-kb-btn"
+                style="padding:6px 12px; font-size:0.78rem; color:#ffffff; border:1px solid #ff4d6d; background:linear-gradient(135deg, #ff4d6d 0%, #c1121f 100%); cursor:pointer; font-weight:bold; border-radius:6px; box-shadow:0 0 10px rgba(255,77,109,0.3); transition:all 0.3s ease;">
+                ⚡ REINICIAR BOT
+              </button>
+            </div>
+            <input type="text" id="kb-search-input" class="admin-input" placeholder="🔍 Buscar pauta..."
+              style="max-width:240px; padding:0.5rem 0.8rem; font-size:0.8rem;" />
+          </div>
+
+          <div id="kb-cards-container"
+            style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:1.2rem; margin-top:1rem;">
+            <!-- Knowledge cards rendered dynamically -->
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <!-- TAB 6: BOT DE WHATSAPP & VINCULACIÓN QR                 -->
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <div class="tab-content-view" id="tab-whatsapp-bot">
+
+      <!-- QR Box and Baileys Connection Header -->
+      <div class="admin-card"
+        style="background: linear-gradient(135deg, rgba(5,46,38,0.85) 0%, rgba(12,35,74,0.85) 100%); border-color: rgba(0,245,212,0.3);">
+        <div style="display:grid; grid-template-columns: 220px 1fr; gap:2rem; align-items:center;">
+
+          <!-- QR Box Wrap -->
+          <div
+            style="display:flex; flex-direction:column; align-items:center; gap:0.8rem; background:rgba(1,15,12,0.9); padding:1.2rem; border-radius:14px; border:1px solid rgba(0,245,212,0.4); box-shadow:0 10px 30px rgba(0,0,0,0.5);">
+            <div id="qr-box-wrap"
+              style="position:relative; width:180px; height:180px; background:#ffffff; border-radius:12px; padding:10px; display:flex; align-items:center; justify-content:center; box-shadow:0 0 25px rgba(0,245,212,0.35); cursor:pointer;"
+              title="Haz clic para actualizar el estado del QR">
+              <img id="wp-qr-img"
+                src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'><rect width='160' height='160' fill='%23f1f5f9'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='12' fill='%230066cc'>Cargando QR...</text></svg>"
+                alt="Código QR WhatsApp Real AITUE"
+                style="width:160px; height:160px; border-radius:6px; object-fit:contain;" />
+              <div id="qr-overlay-status"
+                style="position:absolute; inset:0; background:rgba(7,22,47,0.95); border-radius:12px; display:none; flex-direction:column; align-items:center; justify-content:center; padding:10px; text-align:center;">
+                <span style="font-size:2rem;">✅</span>
+                <span
+                  style="font-family:'Outfit', sans-serif; font-size:0.85rem; font-weight:700; color:#00f5d4; margin-top:6px;">DISPOSITIVO
+                  VINCULADO</span>
+                <span style="font-size:0.65rem; color:#94a3b8; margin-top:2px;" id="connected-phone-display">+54 9 11
+                  5456-5634</span>
+              </div>
+            </div>
+            <span
+              style="font-size:0.7rem; color:#00f5d4; font-family:'Share Tech Mono', monospace; text-align:center;">📷
+              Escanea con WhatsApp en tu celular</span>
+          </div>
+
+          <!-- Connection Info & Pairing Actions -->
+          <div style="display:flex; flex-direction:column; gap:0.8rem;">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span style="font-size:1.5rem;">📱</span>
+              <div>
+                <h3 style="font-family:'Outfit', sans-serif; font-size:1.3rem; margin:0; color:#ffffff;">Vinculación
+                  de WhatsApp por QR</h3>
+                <span style="font-family:'Share Tech Mono', monospace; font-size:0.78rem; color:#00f5d4;"
+                  id="qr-status-label">
+                  ESTADO: OBTENIENDO CÓDIGO QR REAL DE WHATSAPP...
+                </span>
+              </div>
+            </div>
+
+            <div
+              style="background:rgba(0,245,212,0.08); border-left:3px solid #00f5d4; padding:0.8rem 1rem; border-radius:6px; font-size:0.83rem; color:#cbd5e1; line-height:1.4;">
+              <strong style="color:#ffffff;">Vinculación por QR:</strong> Abre WhatsApp en tu celular ➔ Dispositivos
+              vinculados ➔ Vincular un dispositivo. El bot guardará la sesión para los próximos arranques.
+              Si WhatsApp la cierra, podrás generar un nuevo QR desde este panel.
+            </div>
+
+            <div style="display:flex; flex-wrap:wrap; gap:0.8rem; margin-top:0.4rem;">
+              <button class="btn-admin-warning" id="toggle-pause-bot-btn"
+                style="padding:0.75rem 1.4rem; font-weight:700;">
+                ⏸️ Pausar Bot
+              </button>
+              <button class="btn-admin-ghost" id="disconnect-wp-btn"
+                style="padding:0.75rem 1.2rem; color:#ff4d6d; border-color:rgba(255,77,109,0.5); font-weight:700;">
+                🔴 Desvincular Cuenta WhatsApp
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Config System Prompts for WhatsApp Bot -->
+      <div style="margin-top:1.5rem;" class="admin-card">
+        <h3 class="admin-card-title">💬 Personalidad & System Prompt (WhatsApp Bot)</h3>
+        <p class="admin-card-desc">Define el prompt de comportamiento y restricciones de la IA para las auto-respuestas
+          en WhatsApp.</p>
+        <div class="form-group-admin" style="margin-top:0.8rem;">
+          <label class="admin-label" for="prompt-wp-bot">System Prompt (WhatsApp)</label>
+          <textarea id="prompt-wp-bot" class="admin-textarea" rows="10"></textarea>
+        </div>
+        <button class="btn-admin-success" id="save-wp-prompt-btn" style="margin-top:0.8rem;">
+          💾 Guardar Prompt de WhatsApp
+        </button>
+      </div>
+
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <!-- TAB 7: EQUIPO & OPERADORES AUTORIZADOS                   -->
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <div class="tab-content-view" id="tab-users">
+      <div class="admin-cards-grid">
+
+        <!-- Add Operator Form -->
+        <div class="admin-card">
+          <h3 class="admin-card-title">👥 Registrar Operador de Atención Autorizado</h3>
+          <p class="admin-card-desc">
+            Los operadores registrados pueden responder manualmente en el Live Chat y ejecutar **comandos de WhatsApp**
+            (`/estado`, `/pausar`, `/qr`, `/clientes`, `/ventas`) de forma protegida.
+          </p>
+
+          <form id="add-user-form" style="display:flex; flex-direction:column; gap:1rem; margin-top:0.5rem;"
+            onsubmit="return false;">
+            <div class="form-group-admin">
+              <label class="admin-label" for="usr-name">Nombre y Apellido del Operador</label>
+              <input type="text" id="usr-name" class="admin-input" placeholder="Ej. Hugo Flores" required />
+            </div>
+
+            <div class="form-group-admin">
+              <label class="admin-label" for="usr-phone">Número de WhatsApp (con código internacional)</label>
+              <input type="text" id="usr-phone" class="admin-input" placeholder="+5493875014000" required />
+            </div>
+
+            <div class="form-group-admin">
+              <label class="admin-label" for="usr-area">Área / Asignación</label>
+              <select id="usr-area" class="admin-select">
+                <option value="Soporte Técnico">Soporte Técnico</option>
+                <option value="Ventas & Cotización">Ventas & Cotización</option>
+                <option value="Administración General">Administración General</option>
+              </select>
+            </div>
+
+            <button type="submit" class="btn-admin-success" id="save-user-btn">
+              ➕ Dar de Alta Operador
+            </button>
+          </form>
+        </div>
+
+        <!-- Operators Table List -->
+        <div class="admin-card" style="grid-column: span 2;">
+          <h3 class="admin-card-title">👥 Lista de Operadores y Personal del Sistema</h3>
+          <div class="admin-table-wrap" style="margin-top:1rem;">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Número de Teléfono</th>
+                  <th>Área / Cargo</th>
+                  <th>Acción</th>
+                </tr>
+              </thead>
+              <tbody id="users-table-body">
+                <!-- Dynamic rows -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <!-- TAB 8: MÉTRICAS & HISTORIAL (Premium Cyberpunk Dashboard)-->
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <div class="tab-content-view" id="tab-analytics">
+      <div class="admin-card" style="padding:2.5rem; text-align:center;">
+        <h3 class="admin-card-title" style="margin:0 0 0.5rem 0;">📊 Métricas & Historial</h3>
+        <p style="color:#94a3b8; font-size:0.9rem; margin:0;">El monitor de desempeño y las métricas de IA están centralizadas en la vista principal del Centro de Control.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Knowledge Base Article Modal (Top Level Modal) -->
+  <div id="edit-kb-modal"
+    style="display:none; position:fixed; inset:0; background:rgba(2,10,23,0.85); backdrop-filter:blur(8px); z-index:999999; align-items:center; justify-content:center; padding:1rem;">
+    <div
+      style="background:rgba(7,22,47,0.95); border:1px solid rgba(89,168,255,0.3); border-radius:16px; width:100%; max-width:600px; padding:1.8rem; box-shadow:0 20px 50px rgba(0,0,0,0.6); display:flex; flex-direction:column; gap:1.2rem;">
+      <div
+        style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:0.8rem;">
+        <h3 style="font-family:'Outfit', sans-serif; font-size:1.2rem; color:#ffffff; margin:0;">✏️ Editar Pauta de
+          Conocimiento</h3>
+        <button type="button" id="close-edit-kb-modal-x" class="btn-admin-ghost"
+          style="padding:2px 8px; font-size:1rem; color:#94a3b8;">✕</button>
+      </div>
+      <form id="edit-kb-form" style="display:flex; flex-direction:column; gap:1rem;" onsubmit="return false;">
+        <input type="hidden" id="edit-kb-id" />
+        <div class="form-group-admin">
+          <label class="admin-label" for="edit-kb-category">Categoría de Conocimiento</label>
+          <input type="text" id="edit-kb-category" class="admin-input"
+            placeholder="Ej. Empresa & Visión, Línea Standard, Protocolos..." required />
+        </div>
+        <div class="form-group-admin">
+          <label class="admin-label" for="edit-kb-title">Título del Documento / Regla</label>
+          <input type="text" id="edit-kb-title" class="admin-input" required />
+        </div>
+        <div class="form-group-admin">
+          <label class="admin-label" for="edit-kb-content">Contenido / Pautas de Respuesta</label>
+          <textarea id="edit-kb-content" class="admin-textarea" rows="8" required></textarea>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:0.8rem; margin-top:0.5rem;">
+          <button type="button" class="btn-admin-ghost" id="cancel-edit-kb-btn">Cancelar</button>
+          <button type="submit" class="btn-admin-success" id="save-edit-kb-btn">💾 Guardar Cambios</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script type="module" src="/src/admin.js"></script>
+</body>
+
+</html>

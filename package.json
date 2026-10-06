@@ -1,0 +1,23 @@
+{
+  "name": "aitue-net",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "server": "node --env-file-if-exists=.env server/wp-server.js",
+    "build": "vite build",
+    "test": "node --test server/tests/*.test.js",
+    "preview": "vite preview",
+    "start": "node --env-file-if-exists=.env start-dev.mjs"
+  },
+  "devDependencies": {
+    "vite": "^8.1.1"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^7.0.0-rc14",
+    "express": "^5.2.1",
+    "qrcode": "^1.5.4",
+    "pino": "^9.14.0"
+  }
+}

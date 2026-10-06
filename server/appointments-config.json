@@ -1,0 +1,10 @@
+{
+  "workDays": [1, 2, 3, 4, 5],
+  "openTime": "09:00",
+  "closeTime": "18:30",
+  "durationMin": 30,
+  "minAdvanceHours": 2,
+  "maxConcurrent": 1,
+  "blockedDates": [],
+  "operatorAvailable": true
+}
